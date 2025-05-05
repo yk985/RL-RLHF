@@ -15,21 +15,28 @@ import base64, io
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-class Policy(nn.Module): # definie the policy network
+class Policy(nn.Module):
     def __init__(self, state_size=4, action_size=2, hidden_size=32):
-        super(Policy, self).__init__()
+        super().__init__()
+        # shared layers
         self.fc1 = nn.Linear(state_size, hidden_size)
+        # policy head
         self.fc2 = nn.Linear(hidden_size, action_size)
+        # value head
+        self.v  = nn.Linear(hidden_size, 1)
 
     def forward(self, state):
         x = F.relu(self.fc1(state))
-        x = self.fc2(x)
-        return F.softmax(x, dim=1) # we just consider 1 dimensional probability of action
+        # action probabilities
+        pi = F.softmax(self.fc2(x), dim=-1)
+        # state value
+        v  = self.v(x).squeeze(-1)
+        return pi, v
 
     def act(self, state):
         state = torch.from_numpy(state).float().unsqueeze(0).to(device)
-        probs = self.forward(state).cpu()
-        model = Categorical(probs)
-        action = model.sample()
-        return action.item(), model.log_prob(action)
+        probs, value = self.forward(state)
+        dist = Categorical(probs)
+        action = dist.sample()
+        return action.item(), dist.log_prob(action), value
     
