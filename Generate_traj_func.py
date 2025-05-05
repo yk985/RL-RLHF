@@ -9,7 +9,7 @@ def generate_trajectory(policy, env, max_steps=500):
     """
     state = env.reset()
     trajectory = []
-    for _ in range(max_steps):
+    for step in range(max_steps):
         # policy.act now returns action, log_prob, and value estimate
         action, log_prob, value = policy.act(state)
         next_state, reward, done, _ = env.step(action)
@@ -22,11 +22,12 @@ def generate_trajectory(policy, env, max_steps=500):
         })
         state = next_state
         if done:
+            # print(f"Episode finished after {step+1} timesteps; the trajectory leads to a lost of control")
             break
     return trajectory
 
 
-def plot_suboptimality(reward_hist_pi1, reward_hist_pi2, max_reward=None):
+def plot_suboptimality(reward_hist_pi1, reward_hist_pi2, max_reward=None): # in cartpole, 200 is the max reward
     """
     Plot suboptimality = (max_reward - reward) versus update index
     for two policies π₁ and π₂.
