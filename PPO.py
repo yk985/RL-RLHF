@@ -20,6 +20,13 @@ class RolloutBuffer:
         self.rewards, self.values, self.dones   = [], [], []
 
     def store(self, s, a, lp, r, v, done):
+        # convert env state (NumPy) into torch.Tensor 
+        s = torch.from_numpy(s).float().to(device)
+
+         # DETACH the old log‐prob and value 
+        lp = lp.detach()
+        v  = torch.tensor(v).float().to(device)
+
         self.states.append(s)
         self.actions.append(a)
         self.logprobs.append(lp)
@@ -56,6 +63,8 @@ def ppo_update(policy, optimizer, buffer, clip_eps=0.2, epochs=4, batch_size=64)
     old_lps = torch.stack(buffer.logprobs).to(device)
     # compute returns & advantages
     # you must pass the last value calculated after rollout
+    last_state = buffer.states[-1]              # assuming you stored tensors
+    _, last_value = policy(last_state.unsqueeze(0))
     returns, advs = buffer.compute_returns_and_advantages(last_value)
     returns, advs = returns.to(device), advs.to(device)
 
