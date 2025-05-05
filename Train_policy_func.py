@@ -40,40 +40,6 @@ class Policy(nn.Module):
         action = dist.sample()
         return action.item(), dist.log_prob(action), value
     
-# Class to store data from rollouts batches; Uses GAE(Generalized Advantage Estimation) to compute advantages and returns.
-class RolloutBuffer:
-    def __init__(self):
-        self.states, self.actions, self.logprobs = [], [], []
-        self.rewards, self.values, self.dones   = [], [], []
 
-    def store(self, s, a, lp, r, v, done):
-        self.states.append(s)
-        self.actions.append(a)
-        self.logprobs.append(lp)
-        self.rewards.append(r)
-        self.values.append(v)
-        self.dones.append(done)
-
-    def compute_returns_and_advantages(self, last_value, gamma=0.99, lam=0.95):
-        returns, advs = [], []
-        gae = 0
-        for i in reversed(range(len(self.rewards))):
-            mask  = 1.0 - float(self.dones[i])
-            delta = self.rewards[i] + gamma * last_value * mask - self.values[i]
-            gae   = delta + gamma * lam * mask * gae
-            advs.insert(0, gae)
-            last_value = self.values[i]
-        for idx, v in enumerate(self.values):
-            returns.append(advs[idx] + v)
-        # normalize advantages
-        advs = torch.tensor(advs, dtype=torch.float32)
-        advs = (advs - advs.mean()) / (advs.std() + 1e-8)
-        returns = torch.tensor(returns, dtype=torch.float32)
-        return returns, advs
-
-    def clear(self):
-        for lst in (self.states, self.actions, self.logprobs,
-                    self.rewards, self.values, self.dones):
-            lst.clear()
 
     
