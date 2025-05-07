@@ -25,7 +25,9 @@ class RolloutBuffer:
 
          # DETACH the old log‐prob and value 
         lp = lp.detach()
-        v  = torch.tensor(v).float().to(device)
+        v = v.detach()          # instead of torch.tensor(v)
+        # v  = torch.tensor(v).float().to(device)
+
 
         self.states.append(s)
         self.actions.append(a)
@@ -56,14 +58,22 @@ class RolloutBuffer:
                     self.rewards, self.values, self.dones):
             lst.clear()
 
-def ppo_update(policy, optimizer, buffer, clip_eps=0.2, epochs=4, batch_size=64):
+def ppo_update(policy, optimizer, buffer, entropy_coef= 0.01, clip_eps=0.2, epochs=4, batch_size=64):
     # convert lists to tensors
     states = torch.stack(buffer.states).to(device)
     actions = torch.tensor(buffer.actions).to(device)
     old_lps = torch.stack(buffer.logprobs).to(device)
+
     # compute returns & advantages
     # you must pass the last value calculated after rollout
-    last_state = buffer.states[-1]              # assuming you stored tensors
+    last_state = buffer.states[-1]
+    with torch.no_grad():
+        _, last_value = policy(last_state.unsqueeze(0))
+
+    if buffer.dones[-1]:          # episode actually ended
+        last_value = torch.tensor(0.0, device=last_state.device)
+
+    # last_state = buffer.states[-1]              # assuming you stored tensors
     _, last_value = policy(last_state.unsqueeze(0))
     returns, advs = buffer.compute_returns_and_advantages(last_value)
     returns, advs = returns.to(device), advs.to(device)
@@ -89,10 +99,14 @@ def ppo_update(policy, optimizer, buffer, clip_eps=0.2, epochs=4, batch_size=64)
             # entropy bonus
             entropy = dist.entropy().mean()
 
-            loss = policy_loss + 0.5 * value_loss - 0.01 * entropy # see PPO paper Schulman et al., 2017
+            loss = policy_loss + 0.5 * value_loss - entropy_coef * entropy # see PPO paper Schulman et al., 2017
 
             optimizer.zero_grad()
             loss.backward()
+
+            # Clip all gradients to norm ≤ 0.5
+            torch.nn.utils.clip_grad_norm_(policy.parameters(), 0.5)
+
             optimizer.step()
 
     buffer.clear()
