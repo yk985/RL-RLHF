@@ -78,7 +78,7 @@ def ppo_update(policy, optimizer, buffer, clip_eps=0.2, epochs=4, batch_size=64)
             LP_new = dist.log_prob(A)
             ratio = (LP_new - LP_old).exp()
 
-            # clipped policy loss
+            # clipped policy loss; exactly slide 39 lecture 5
             surr1 = ratio * ADV
             surr2 = torch.clamp(ratio, 1 - clip_eps, 1 + clip_eps) * ADV
             policy_loss = -torch.min(surr1, surr2).mean()
@@ -89,7 +89,7 @@ def ppo_update(policy, optimizer, buffer, clip_eps=0.2, epochs=4, batch_size=64)
             # entropy bonus
             entropy = dist.entropy().mean()
 
-            loss = policy_loss + 0.5 * value_loss - 0.01 * entropy
+            loss = policy_loss + 0.5 * value_loss - 0.01 * entropy # see PPO paper Schulman et al., 2017
 
             optimizer.zero_grad()
             loss.backward()
