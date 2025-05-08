@@ -74,7 +74,6 @@ def ppo_update(policy, optimizer, buffer, entropy_coef= 0.01, clip_eps=0.2, epoc
         last_value = torch.tensor(0.0, device=last_state.device)
 
     # last_state = buffer.states[-1]              # assuming you stored tensors
-    _, last_value = policy(last_state.unsqueeze(0))
     returns, advs = buffer.compute_returns_and_advantages(last_value)
     returns, advs = returns.to(device), advs.to(device)
 
@@ -104,9 +103,10 @@ def ppo_update(policy, optimizer, buffer, entropy_coef= 0.01, clip_eps=0.2, epoc
             optimizer.zero_grad()
             loss.backward()
 
-            # Clip all gradients to norm ≤ 0.5
-            torch.nn.utils.clip_grad_norm_(policy.parameters(), 0.5)
+            # # Clip all gradients to norm ≤ 0.5
+            # torch.nn.utils.clip_grad_norm_(policy.parameters(), 0.5)
 
             optimizer.step()
 
     buffer.clear()
+

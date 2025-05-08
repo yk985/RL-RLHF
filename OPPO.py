@@ -3,6 +3,7 @@
 import numpy as np
 import torch
 from collections import deque
+from tqdm import tqdm
 
 def baseline_1(state):
     """
@@ -41,7 +42,7 @@ def OPPO_update(policy,
     scores_deque = deque(maxlen=100)
     scores = []
 
-    for e in range(1, n_episodes + 1):
+    for e in tqdm(range(1, n_episodes + 1)):
         saved_log_probs = []
         rewards         = []
         baseline_vals   = []

@@ -2,7 +2,7 @@ import gym
 import numpy as np
 import matplotlib.pyplot as plt
 
-def generate_trajectory(policy, env, max_steps=500):
+def generate_trajectory(policy, env, max_steps=500): # Add seed s.t. pi1 and pi2 have same initial state
     """
     Roll out one episode with `policy` in `env` up to max_steps.
     Returns a list of dicts: [{"state": s, "action": a, "reward": r, "log_prob": lp, "value": v}, ...].
