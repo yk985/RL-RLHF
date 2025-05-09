@@ -25,9 +25,9 @@ class RewardModel(nn.Module):
 def train_reward_model(reward_model, dataset, optimizer, epochs=5):
     for epoch in range(epochs):
         total_loss = 0
-        for state, a_pos, a_neg in dataset:
-            r_pos = reward_model(state, torch.tensor([a_pos]))
-            r_neg = reward_model(state, torch.tensor([a_neg]))
+        for pair in dataset:
+            r_pos = pair["R_acc"]
+            r_neg = pair["R_rej"]
             preference_score = r_pos - r_neg
             loss = -F.logsigmoid(preference_score).mean()
             

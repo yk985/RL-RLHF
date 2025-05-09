@@ -2,18 +2,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from pairs_generator import extract_states_actions, compute_logprob_trajectory, log_policy_of_traj
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 def dpo_loss(policy, ref_policy, dataset, beta):
     losses = []
-    for state, a_pos, a_neg in dataset:
-        pi, _ = policy(state)
-        pi_ref, _ = ref_policy(state)
+    for pair in dataset:
+        
 
         # Use log probabilities, add small epsilon for stability
-        log_pi_pos = torch.log(pi[a_pos] + 1e-8)
-        log_pi_neg = torch.log(pi[a_neg] + 1e-8)
-        log_ref_pos = torch.log(pi_ref[a_pos] + 1e-8)
-        log_ref_neg = torch.log(pi_ref[a_neg] + 1e-8)
+        log_pi_pos = compute_logprob_trajectory(policy,pair["traj_acc"])+ 1e-8
+        log_pi_neg = compute_logprob_trajectory(policy,pair["traj_rej"])+ 1e-8
+        log_ref_pos = compute_logprob_trajectory(ref_policy,pair["traj_acc"])+ 1e-8
+        log_ref_neg = compute_logprob_trajectory(ref_policy,pair["traj_rej"])+ 1e-8
 
         advantage = beta * ((log_pi_pos - log_ref_pos) - (log_pi_neg - log_ref_neg))
         loss = -F.logsigmoid(advantage)
