@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-
+from pairs_generator import *
 
 
 
@@ -26,8 +26,8 @@ def train_reward_model(reward_model, dataset, optimizer, epochs=5):
     for epoch in range(epochs):
         total_loss = 0
         for pair in dataset:
-            r_pos = pair["R_acc"]
-            r_neg = pair["R_rej"]
+            r_pos = compute_reward_from_traj(reward_model,pair["traj_acc"])
+            r_neg = compute_reward_from_traj(reward_model,pair["traj_rej"])
             preference_score = r_pos - r_neg
             loss = -F.logsigmoid(preference_score).mean()
             
