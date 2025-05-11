@@ -58,7 +58,7 @@ class RolloutBuffer:
                     self.rewards, self.values, self.dones):
             lst.clear()
 
-def ppo_update(policy, optimizer, buffer, entropy_coef= 0.01, clip_eps=0.2, epochs=4, batch_size=64):
+def ppo_update(policy, optimizer, buffer,gamma, lam, c1 = 0.5, c2= 0.01, clip_eps=0.2, epochs=4, batch_size=64):
     # convert lists to tensors
     states = torch.stack(buffer.states).to(device)
     actions = torch.tensor(buffer.actions).to(device)
@@ -70,11 +70,11 @@ def ppo_update(policy, optimizer, buffer, entropy_coef= 0.01, clip_eps=0.2, epoc
     with torch.no_grad():
         _, last_value = policy(last_state.unsqueeze(0))
 
-    if buffer.dones[-1]:          # episode actually ended
-        last_value = torch.tensor(0.0, device=last_state.device)
+    if buffer.dones[-1]:
+        last_value = torch.zeros_like(last_value)
 
     # last_state = buffer.states[-1]              # assuming you stored tensors
-    returns, advs = buffer.compute_returns_and_advantages(last_value)
+    returns, advs = buffer.compute_returns_and_advantages(last_value,gamma, lam)
     returns, advs = returns.to(device), advs.to(device)
 
     dataset = TensorDataset(states, actions, old_lps, returns, advs)
@@ -98,7 +98,7 @@ def ppo_update(policy, optimizer, buffer, entropy_coef= 0.01, clip_eps=0.2, epoc
             # entropy bonus
             entropy = dist.entropy().mean()
 
-            loss = policy_loss + 0.5 * value_loss - entropy_coef * entropy # see PPO paper Schulman et al., 2017
+            loss = policy_loss + c1 * value_loss - c2 * entropy # see PPO paper Schulman et al., 2017
 
             optimizer.zero_grad()
             loss.backward()
@@ -110,3 +110,14 @@ def ppo_update(policy, optimizer, buffer, entropy_coef= 0.01, clip_eps=0.2, epoc
 
     buffer.clear()
 
+
+def evaluate_policy(policy, env, n_episodes=10, seed=2000): # different seed from training
+    returns = []
+    for i in range(n_episodes):
+        state, done, ep_ret = env.reset(seed=seed+i), False, 0.0
+        while not done:
+            a, _, _ = policy.act(state)
+            state, r, done, _ = env.step(a)
+            ep_ret += r
+        returns.append(ep_ret)
+    return np.mean(returns), returns
