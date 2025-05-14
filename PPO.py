@@ -112,9 +112,23 @@ def ppo_update(policy, optimizer, buffer,gamma, lam, c1 = 0.5, c2= 0.01, clip_ep
 
 
 def evaluate_policy(policy, env, n_episodes=10, seed=2000): # different seed from training
+    ''' 
+    Evaluate the policy on the environment
+    Args:
+        policy: the policy to evaluate
+        env: the environment to evaluate on
+        n_episodes: number of episodes to evaluate
+        seed: random seed for reproducibility
+        Returns:
+            mean return: average return over n_episodes
+            returns: list of returns for each episode (complete episode)
+    '''
     returns = []
+    state = env.reset(seed=seed) # reset the environment with a given seed
     for i in range(n_episodes):
-        state, done, ep_ret = env.reset(seed=seed+i), False, 0.0
+        state = env.reset()
+        done = False
+        ep_ret = 0.0
         while not done:
             a, _, _ = policy.act(state)
             state, r, done, _ = env.step(a)
