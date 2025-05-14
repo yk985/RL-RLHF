@@ -24,13 +24,13 @@ def plot_suboptimality(reward_hist_pi1, reward_hist_pi2, max_reward=None): # in 
     sub2 = max_reward - np.array(reward_hist_pi2)
 
     plt.figure(figsize=(7, 5))
-    plt.plot(updates1, sub1, label=f"π₁ suboptimality \n mean = {np.mean(sub1):.1f}")
-    plt.plot(updates2, sub2, label=f"π₂ suboptimality \n mean = {np.mean(sub2):.1f}")
+    plt.plot(updates1, sub1, label=f"$\pi_1$ suboptimality \n mean = {np.mean(sub1):.1f}")
+    plt.plot(updates2, sub2, label=f"$\pi_2$ suboptimality \n mean = {np.mean(sub2):.1f}")
     plt.xlabel("Episodes (complete Runs)")
     plt.ylabel("Suboptimality $=$ $R_{run}-R_{max}$ ")
     plt.title("Policy Suboptimality Over Training")
     plt.legend(loc="upper right")
-    plt.grid(True, alpha=0.5)
+    plt.grid(alpha=0.5)
     plt.show()
 
 
@@ -58,6 +58,6 @@ def plot_trajectory_performance(traj1, traj2):
     plt.ylabel("Cumulative Reward")
     plt.title("Single‐Episode Performance Comparison for Two Given Trajectories")
     plt.legend(loc="upper left")
-    plt.grid(True, alpha=0.6)
+    plt.grid(alpha=0.6)
     plt.show()
 
