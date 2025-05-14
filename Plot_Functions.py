@@ -3,6 +3,27 @@ import matplotlib.pyplot as plt
 
 
 
+def plot_Scores(reward_hist_pi1, reward_hist_pi2): # in cartpole, 200 is the max reward
+    """
+    Plot average episode reward versus update index
+    for two policies π₁ and π₂.
+    Args:
+      reward_hist_pi1: list of average episode rewards per update for π₁
+      reward_hist_pi2: same for π₂ (must be same length)
+    """
+
+    updates1 = np.arange(1, len(reward_hist_pi1) + 1)
+    updates2 = np.arange(1, len(reward_hist_pi2) + 1)
+
+    plt.figure(figsize=(7, 5))
+    plt.plot(updates1, reward_hist_pi1, label=f"$\pi_1$ Scores \n mean = {np.mean(reward_hist_pi1):.1f}")
+    plt.plot(updates2, reward_hist_pi2, label=f"$\pi_2$ Scores \n mean = {np.mean(reward_hist_pi2):.1f}")
+    plt.xlabel("Episodes (complete Runs)")
+    plt.ylabel("Score at each episode $=$ $R_{run}$ ")
+    plt.legend(loc="lower right")
+    plt.grid(alpha=0.5)
+    plt.show()
+    
 def plot_suboptimality(reward_hist_pi1, reward_hist_pi2, max_reward=None): # in cartpole, 200 is the max reward
     """
     Plot suboptimality = (max_reward - reward) versus update index
