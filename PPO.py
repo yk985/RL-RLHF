@@ -103,8 +103,8 @@ def ppo_update(policy, optimizer, buffer,gamma, lam, c1 = 0.5, c2= 0.01, clip_ep
             optimizer.zero_grad()
             loss.backward()
 
-            # # Clip all gradients to norm ≤ 0.5
-            # torch.nn.utils.clip_grad_norm_(policy.parameters(), 0.5)
+            # Clip all gradients to norm ≤ 0.5
+            torch.nn.utils.clip_grad_norm_(policy.parameters(), 0.5)
 
             optimizer.step()
 
