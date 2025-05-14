@@ -18,7 +18,7 @@ def sample_preference_pairs(pi1, pi2, env, K=100):
         else:
             pairs.append({
                 "traj_acc": t2, "traj_rej": t1,
-                "R_acc": R2, "R_rej": R1, "pref_prob": p1 # is it not p2 the preference prob?
+                "R_acc": R2, "R_rej": R1, "pref_prob": pi2 # is it not p2 the preference prob?
             })
     return pairs
 
