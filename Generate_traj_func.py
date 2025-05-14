@@ -50,11 +50,11 @@ def plot_suboptimality(reward_hist_pi1, reward_hist_pi2, max_reward=None): # in 
     plt.figure(figsize=(7, 5))
     plt.plot(updates1, sub1, label="π₁ suboptimality")
     plt.plot(updates2, sub2, label="π₂ suboptimality")
-    plt.xlabel("Update #")
-    plt.ylabel("Suboptimality\n(max_return − achieved)")
+    plt.xlabel("Episodes (complete Runs)")
+    plt.ylabel("Suboptimality $=$ $R_{run}-R_{max}$ ")
     plt.title("Policy Suboptimality Over Training")
-    plt.legend()
-    plt.grid(True)
+    plt.legend(loc="upper right")
+    plt.grid(True, alpha=0.5)
     plt.show()
 
 
