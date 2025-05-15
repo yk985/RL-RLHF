@@ -37,7 +37,7 @@ class Policy(nn.Module):
     def act(self, state):
         state = torch.from_numpy(state).float().unsqueeze(0).to(device)
         probs, value = self.forward(state)
-        dist = Categorical(probs)
+        dist = Categorical(probs=probs)
         action = dist.sample()
         return action.item(), dist.log_prob(action), value
     
@@ -67,10 +67,73 @@ class Policy_v2(nn.Module): # 2 hidden layers
     def act(self, state):
         state = torch.from_numpy(state).float().unsqueeze(0).to(device)
         probs, value = self.forward(state)
-        dist = Categorical(probs)
+        dist = Categorical(probs=probs)
         action = dist.sample()
         return action.item(), dist.log_prob(action), value
     
+class Policy_v3(nn.Module):
+    def __init__(self, state_size=4, action_size=2, hidden_size=32):
+        super().__init__()
+        # shared layers
+        self.fc1 = nn.Linear(state_size, hidden_size)
+        # policy head
+        self.fc2 = nn.Linear(hidden_size, action_size)
+        # value head
+        self.v  = nn.Linear(hidden_size, 1)
+
+    def forward(self, state):
+        x = F.relu(self.fc1(state))
+        logits = self.fc2(x)
+        # Clip logits to a safe range (e.g., between -10 and +10)
+        logits = torch.clamp(logits, -10, 10)
+        v = self.v(x).squeeze(-1)
+        return logits, v
+
+    def act(self, state):
+        state = torch.from_numpy(state).float().unsqueeze(0).to(device)
+        logits, value = self.forward(state)
+        dist = Categorical(logits=logits)
+        action = dist.sample()
+        return action.item(), dist.log_prob(action), value
+    
+class PolicyContinuous(nn.Module):
+    def __init__(self, state_dim, action_dim, hidden_size=64):
+        super().__init__()
+        # shared trunk
+        self.fc1 = nn.Linear(state_dim, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        # actor: outputs mean of each action dim
+        self.mu_head = nn.Linear(hidden_size, action_dim)
+        # we’ll learn a free log‐std for each action dim
+        self.log_std = nn.Parameter(torch.zeros(action_dim))
+        # critic: shares trunk or own layers
+        self.v_head = nn.Linear(hidden_size, 1)
+
+    def forward(self, x):
+        x = torch.tanh(self.fc1(x))
+        x = torch.tanh(self.fc2(x))
+        mu  = self.mu_head(x)
+        std = self.log_std.exp().expand_as(mu)
+        v   = self.v_head(x).squeeze(-1)
+        return mu, std, v
+
+    def act(self, state, clip_low=None, clip_high=None):
+        """
+        state: NumPy array [state_dim]
+        clip_low/high: optional bounds from env.action_space
+        Returns: action (NumPy), log_prob (Tensor), value (float)
+        """
+        st = torch.from_numpy(state).float().unsqueeze(0).to(device)
+        mu, std, v = self.forward(st)
+        dist = Normal(mu, std)
+        a    = dist.rsample()   # reparam trick
+        logp = dist.log_prob(a).sum(-1)
+        a    = a.cpu().numpy()[0]
+        # optional: enforce action bounds
+        if clip_low is not None:
+            a = np.clip(a, clip_low, clip_high)
+        return a, logp, v.item()
+
 
 
 class MLPActorCritic(nn.Module):    # Policy taken from Schulman et al. (2017)

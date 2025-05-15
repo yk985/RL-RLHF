@@ -51,6 +51,14 @@ def baseline_MountainCar(state):
         return -10*( position * velocity) 
     else:
         return 100 * np.abs(position) + 10000 * velocity**2
+    
+def baseline_MountainCar_continuous(state):
+    """
+    A simple hand-coded baseline: uses the car's position to estimate value.
+    """
+    position = state[0]  # car's position
+    velocity = state[1]  # car's velocity
+    return 200*position+ 409*np.abs(position) + 1000 * velocity
 
 
 
