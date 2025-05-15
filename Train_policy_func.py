@@ -118,21 +118,20 @@ class PolicyContinuous(nn.Module):
         return mu, std, v
 
     def act(self, state, clip_low=None, clip_high=None):
-        """
-        state: NumPy array [state_dim]
-        clip_low/high: optional bounds from env.action_space
-        Returns: action (NumPy), log_prob (Tensor), value (float)
-        """
         st = torch.from_numpy(state).float().unsqueeze(0).to(device)
         mu, std, v = self.forward(st)
         dist = Normal(mu, std)
-        a    = dist.rsample()   # reparam trick
-        logp = dist.log_prob(a).sum(-1)
-        a    = a.cpu().numpy()[0]
-        # optional: enforce action bounds
+
+        a    = dist.rsample()             # [1×action_dim], requires_grad=True
+        logp = dist.log_prob(a).sum(-1)   # Tensor
+        a_np = a.detach().cpu().numpy()[0]  # detach first!
+
+        # optional: clip to action bounds
         if clip_low is not None:
-            a = np.clip(a, clip_low, clip_high)
-        return a, logp, v.item()
+            a_np = np.clip(a_np, clip_low, clip_high)
+
+        return a_np, logp, v.item()
+
 
 
 

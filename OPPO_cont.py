@@ -90,8 +90,6 @@ def baseline_MountainCar_continuous(state):
     return terminal_potential - control_penalty
 
 
-
-
 def select_action(policy, obs):
     obs_tensor = torch.tensor(obs, dtype=torch.float32)
     probs = policy(obs_tensor)
@@ -157,9 +155,9 @@ def OPPO_update(policy,
             action, log_prob, _ = policy.act(state)
             saved_log_probs.append(log_prob)
 
+            baseline_vals.append(baseline(state))      # does it goes after or before the action?
             state, reward, done, _ = env.step(action)
             rewards.append(reward)
-            baseline_vals.append(baseline(state))      # does it goes after or before the action?
 
             if done:
                 break
@@ -179,6 +177,22 @@ def OPPO_update(policy,
 
         # build policy loss
         policy_loss_terms = []
+        # 1️ collect the raw (unnormalised) advantages
+        advantages = torch.tensor(
+            [G - b for G, b in zip(rewards_to_go, baseline_vals)],
+            dtype=torch.float32)
+
+        # 2️ normalise: mean 0, variance 1
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+        # 3️ build the loss with the *normalised* advantages
+        policy_loss_terms = [
+            -log_prob * adv for log_prob, adv in zip(saved_log_probs, advantages)
+        ]
+        policy_loss = torch.stack(policy_loss_terms).sum()
+
+
+        
         for log_prob, G, b in zip(saved_log_probs, rewards_to_go, baseline_vals):
             advantage = G - b
             policy_loss_terms.append(-log_prob * advantage)
@@ -216,7 +230,7 @@ def OPPO_update(policy,
                 + f"Average Score: {np.mean(scores_deque):.2f}"
             )
             print(f"Saving the policy in pi2_oppo_{env_name}.pth...")
-            torch.save(policy.state_dict(), f"pi2_oppo_{env_name}.pth")
+            torch.save(policy.state_dict(), f"pi2_oppo_cont_{env_name}.pth")
             checkpoint_reached = True
         
         # Stopping criteria with target score
@@ -226,7 +240,7 @@ def OPPO_update(policy,
                 + f"Average Score: {np.mean(scores_deque):.2f}"
             )
             print(f"Saving the policy in pi1_oppo_{env_name}.pth...")
-            torch.save(policy.state_dict(), f"pi1_oppo_{env_name}.pth")
+            torch.save(policy.state_dict(), f"pi1_oppo_cont_{env_name}.pth")
             break
         
         # Early stopping criteria
