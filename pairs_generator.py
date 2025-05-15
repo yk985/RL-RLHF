@@ -62,7 +62,8 @@ def compute_logprob_trajectory(policy, trajectory, device="cpu"):# for trajector
 
 def compute_reward_from_traj(reward_model,trajectory,device='cpu'):
     total_reward=0
-    for state,action in extract_states_actions(trajectory,device=device):
+    states ,actions =extract_states_actions(trajectory,device=device)
+    for state,action in zip(states,actions):
         total_reward+=reward_model(state,action)
     return total_reward
 
