@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+import gym
+import time
 from collections import deque
 from tqdm.auto import tqdm
 
@@ -45,7 +47,19 @@ def baseline_MountainCar(state):
     """
     position = state[0]  # car's position
     velocity = state[1]  # car's velocity
-    return 200*position+ 409*np.abs(position) + 1000 * velocity
+    if np.abs(position) >= 0.2:
+        return -10*( position * velocity) 
+    else:
+        return 100 * np.abs(position) + 10000 * velocity**2
+
+
+
+def select_action(policy, obs):
+    obs_tensor = torch.tensor(obs, dtype=torch.float32)
+    probs = policy(obs_tensor)
+    dist = torch.distributions.Categorical(probs)
+    action = dist.sample()
+    return action.item(), dist.log_prob(action)
 
 
 def OPPO_update(policy,
@@ -59,7 +73,8 @@ def OPPO_update(policy,
                 early_stop=False,
                 seed=42,
                 target_score=None,
-                env_name="CartPole-v0"):
+                env_name="CartPole-v0",
+                display_every=False):
     """
     A REINFORCE-with-baseline trainer (“OPPO”) for episodic tasks.
 
@@ -74,7 +89,8 @@ def OPPO_update(policy,
       print_every  – print stats every this many episodes
       early_stop   - if True, stop once you hit an average ≥195 over last 100 eps
       seed         – random seed
-      targer_score – if not None, stop once you hit this score
+      targer_score – if not None, stop once you hit this score,
+      display_every – if True, display the environment every print_every episodes
     Returns:
       scores       – list of total episode rewards
     """
@@ -140,7 +156,20 @@ def OPPO_update(policy,
         if e % print_every == 0:
             avg_score = float(np.mean(scores_deque))
             print(f"Episode {e} \t Average Score over the last {print_every:.0f} episodes: {avg_score:.1f}")
+            
+            if display_every:
+                # Render what the agent does every X episodes
+                render_env = gym.make(env_name, render_mode='human')
+                obs = render_env.reset()
+                done = False
+                while not done:
+                    render_env.render()
+                    action, _, _ = policy.act(state)
 
+                    # action, _ = select_action(policy, obs)
+                    obs, _, done, _ = render_env.step(action)
+                    # time.sleep(0.03)  # inside the while loop to slow down frames
+                render_env.close()
 
         # Criteria To save current policy as Pi2 with half the target_score
         if not checkpoint_reached and target_score is not None and np.mean(scores_deque) >= target_score/2:
