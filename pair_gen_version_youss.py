@@ -1,5 +1,5 @@
 import numpy as np
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from Generate_traj_func import *
 
 
@@ -29,6 +29,6 @@ def generate_preference_pair(policy1,policy2,env,max_steps=500):
 
 def generate_preference_datasets(policy1,policy2,env,nb_traj_pairs=100,max_steps=500):
     traj_pair_list=[]
-    for i in tqdm(range(nb_traj_pairs)):
-        traj_pair_list.append(np.array(generate_preference_pair(policy1,policy2,env,max_steps=max_steps)))
-    return np.array(traj_pair_list)
+    for i in tqdm(range(nb_traj_pairs), desc="Generating preference pairs", leave=False):
+        traj_pair_list.append(generate_preference_pair(policy1,policy2,env,max_steps=max_steps))
+    return traj_pair_list

@@ -82,8 +82,8 @@ def ppo_update(policy, optimizer, buffer,gamma, lam, c1 = 0.5, c2= 0.01, clip_ep
 
     for _ in range(epochs):
         for S, A, LP_old, R, ADV in loader:
-            pi, V = policy(S)
-            dist = Categorical(pi)
+            logits, V = policy(S)
+            dist = Categorical(logits=logits)
             LP_new = dist.log_prob(A)
             ratio = (LP_new - LP_old).exp()
 

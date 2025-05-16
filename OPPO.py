@@ -147,7 +147,7 @@ def OPPO_update(policy,
     # stores the scores of all episodes
     scores = []
 
-    for e in tqdm(range(1, n_episodes + 1)):
+    for e in tqdm(range(1, n_episodes + 1), desc="Training", unit="episode", leave=True):
         saved_log_probs = []
         rewards         = []
         baseline_vals   = []
