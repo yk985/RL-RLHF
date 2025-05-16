@@ -41,23 +41,52 @@ def train_reward_model(reward_model, dataset, optimizer, epochs=1000):
 def compute_kl_divergence(p_probs, q_probs):
     return torch.sum(p_probs * (torch.log(p_probs + 1e-8) - torch.log(q_probs + 1e-8)), dim=-1)
 
-def train_policy(policy, ref_policy, reward_model, prompts, optimizer, beta=0.1):
-    for state in prompts:
-        pi, _ = policy(state)
-        with torch.no_grad():
-            pi_ref, _ = ref_policy(state)
-        
-        dist = torch.distributions.Categorical(pi)
-        action = dist.sample()
+def train_policy_from_rollouts_n_updates(policy, ref_policy, reward_model, env, optimizer,
+                                         N=10, K=10, max_steps=500, beta=0.1, device="cpu"):
+    """
+    Train the policy using RLHF loss with KL regularization over N update steps.
+    Each update step is based on K newly generated trajectories.
 
-        reward = reward_model(state, action.unsqueeze(0))
-        kl = compute_kl_divergence(pi, pi_ref)
+    Args:
+        policy: trainable policy
+        ref_policy: frozen reference policy
+        reward_model: learned reward model r_phi(s, a)
+        env: environment
+        optimizer: optimizer for policy parameters
+        N: number of update steps
+        K: number of rollouts per update step
+        max_steps: max steps per rollout
+        beta: KL penalty coefficient
+        device: torch device
+    """
+    for update_step in range(N):
+        total_loss = 0.0
 
-        rl_loss = -reward + beta * kl.mean()
+        for k in range(K):
+            traj = generate_trajectory(policy, env, max_steps=max_steps)
+            states, actions = extract_states_actions(traj,device=device)
+
+            pi, _ = policy(states)
+            with torch.no_grad():
+                pi_ref, _ = ref_policy(states)
+
+            dist = torch.distributions.Categorical(pi)
+            reward = compute_reward_from_traj(reward_model,traj)
+            kl = torch.distributions.kl.kl_divergence(
+                torch.distributions.Categorical(pi_ref),
+                torch.distributions.Categorical(pi)
+            )
+
+            loss = (-reward + beta * kl).mean()
+            total_loss += loss
+
+        avg_loss = total_loss / K
 
         optimizer.zero_grad()
-        rl_loss.backward()
+        avg_loss.backward()
         optimizer.step()
+
+        print(f"[Update {update_step+1}/{N}] Avg Loss: {avg_loss.item():.4f}")
 
 def compute_gae(trajectory, gamma=0.99, lam=0.95):
     rewards = [step["reward"] for step in trajectory]

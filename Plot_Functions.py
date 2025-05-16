@@ -54,7 +54,7 @@ def plot_suboptimality(reward_hist_pi1, reward_hist_pi2, max_reward=None): # in 
     plt.grid(alpha=0.5)
     plt.show()
 
-def plot_suboptimality_three_policies(reward_hist_dpo, reward_hist_init, reward_hist_ref, max_reward=None):
+def plot_suboptimality_three_policies(reward_hist_dpo, reward_hist_init, reward_hist_ref, max_reward=None,algo="DPO"):
     """
     Plot suboptimality = (max_reward - reward) for three policies:
     - DPO policy
@@ -81,7 +81,7 @@ def plot_suboptimality_three_policies(reward_hist_dpo, reward_hist_init, reward_
     sub_ref = max_reward - np.array(reward_hist_ref)
 
     plt.figure(figsize=(8, 5))
-    plt.plot(updates, sub_dpo, label=f"DPO policy\nmean = {np.mean(sub_dpo):.1f}", linewidth=2)
+    plt.plot(updates, sub_dpo, label=algo+f" policy\nmean = {np.mean(sub_dpo):.1f}", linewidth=2)
     plt.plot(updates, sub_init, label=f"Init policy\nmean = {np.mean(sub_init):.1f}", linestyle='--')
     plt.plot(updates, sub_ref, label=f"Reference policy\nmean = {np.mean(sub_ref):.1f}", linestyle=':')
     
