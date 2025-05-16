@@ -10,7 +10,6 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 import torch.optim as optim
 from torch.distributions import Categorical
-torch.manual_seed(0)
 
 import base64, io
 

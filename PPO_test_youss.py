@@ -133,7 +133,7 @@ def train_ppo(env_name="CartPole-v1", updates=1000, device="cpu"):
             print("Solved!")
             break
 
-    return reward_log
+    return reward_log, policy
 
 # # Run it
 # if __name__ == "__main__":
