@@ -1,6 +1,7 @@
 import gym
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 
 def generate_trajectory(policy, env, max_steps=500, seed = 0): # seed s.t. pi1 and pi2 have same initial state
     """
@@ -12,7 +13,8 @@ def generate_trajectory(policy, env, max_steps=500, seed = 0): # seed s.t. pi1 a
     for step in range(max_steps):
         # policy.act now returns action, log_prob, and value estimate
         action, log_prob, value = policy.act(state)
-        next_state, reward, done, _ = env.step(action)
+        action_int = action.item() if isinstance(action, torch.Tensor) else action
+        next_state, reward, done, _ = env.step(action_int)
         trajectory.append({
             "state": state,
             "action": action,

@@ -40,7 +40,8 @@ def extract_states_actions(trajectory, device="cpu"):
         states: Tensor of shape [T, state_dim]
         actions: Tensor of shape [T]
     """
-    states = torch.tensor([step["state"] for step in trajectory], dtype=torch.float32).to(device)
+    states_np = np.array([step["state"] for step in trajectory], dtype=np.float32)
+    states = torch.from_numpy(states_np).to(device)    
     actions = torch.tensor([step["action"] for step in trajectory], dtype=torch.long).to(device)
     return states, actions
 
@@ -62,7 +63,7 @@ def compute_logprob_trajectory(policy, trajectory, device="cpu"):# for trajector
 
 def compute_reward_from_traj(reward_model,trajectory,device='cpu'):
     total_reward=0
-    states ,actions =extract_states_actions(trajectory,device=device)
+    states ,actions = extract_states_actions(trajectory,device=device)
     for state,action in zip(states,actions):
         total_reward+=reward_model(state,action)
     return total_reward
