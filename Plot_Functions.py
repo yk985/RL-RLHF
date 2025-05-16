@@ -54,6 +54,44 @@ def plot_suboptimality(reward_hist_pi1, reward_hist_pi2, max_reward=None): # in 
     plt.grid(alpha=0.5)
     plt.show()
 
+def plot_suboptimality_three_policies(reward_hist_dpo, reward_hist_init, reward_hist_ref, max_reward=None):
+    """
+    Plot suboptimality = (max_reward - reward) for three policies:
+    - DPO policy
+    - Init policy
+    - Reference policy
+
+    Args:
+      reward_hist_dpo: list of average rewards per episode (DPO)
+      reward_hist_init: same for Init policy
+      reward_hist_ref: same for Reference policy
+      max_reward: optional scalar, optimal return (defaults to max seen in any history)
+    """
+    # Infer optimal return if not provided
+    if max_reward is None:
+        max_reward = max(
+            max(reward_hist_dpo),
+            max(reward_hist_init),
+            max(reward_hist_ref)
+        )
+
+    updates = np.arange(1, len(reward_hist_dpo) + 1)
+    sub_dpo = max_reward - np.array(reward_hist_dpo)
+    sub_init = max_reward - np.array(reward_hist_init)
+    sub_ref = max_reward - np.array(reward_hist_ref)
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(updates, sub_dpo, label=f"DPO policy\nmean = {np.mean(sub_dpo):.1f}", linewidth=2)
+    plt.plot(updates, sub_init, label=f"Init policy\nmean = {np.mean(sub_init):.1f}", linestyle='--')
+    plt.plot(updates, sub_ref, label=f"Reference policy\nmean = {np.mean(sub_ref):.1f}", linestyle=':')
+    
+    plt.xlabel("Episodes (complete runs)")
+    plt.ylabel("Suboptimality $= R_{max} - R_{run}$")
+    plt.title("Policy Suboptimality Over Evaluation Episodes")
+    plt.legend(loc="upper right")
+    plt.grid(alpha=0.5)
+    plt.tight_layout()
+    plt.show()
 
 def plot_trajectory_performance(traj1, traj2):
     """
