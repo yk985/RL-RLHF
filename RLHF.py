@@ -22,7 +22,7 @@ class RewardModel(nn.Module):
         x = torch.cat([state, action_onehot], dim=-1)
         return self.fc(x).squeeze(-1)
 
-def train_reward_model(reward_model, dataset, optimizer, epochs=100):
+def train_reward_model(reward_model, dataset, optimizer, epochs=1000):
     for epoch in range(epochs):
         total_loss = 0
         for pair in dataset:
