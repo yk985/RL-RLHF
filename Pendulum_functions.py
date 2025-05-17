@@ -94,7 +94,13 @@ def compute_logprob_trajectory_sac(policy, trajectory, device="cpu"):
     We sum over t:  log π(τ) = ∑_t log π(a_t | s_t).
     """
     # 1) build state-batch
-    states_np = np.stack([step["state"] for step in trajectory], axis=0).astype(np.float32)
+    # states_np = np.stack([step["state"] for step in trajectory], axis=0).astype(np.float32)
+    states_np = np.stack(
+        [np.asarray(step["state"]).squeeze()  # ← remove extra (1, …) dims
+        for step in trajectory],
+        axis=0, dtype=np.float32
+        )  
+
     states    = torch.from_numpy(states_np).to(device)   # shape [T, obs_dim]
 
     # 2) build action-batch as floats

@@ -9,7 +9,8 @@ def sample_preference_pairs(pi1, pi2, env, K=100):
         t1 = generate_trajectory(pi1, env)
         t2 = generate_trajectory(pi2, env)
         R1, R2 = sum(s['reward'] for s in t1), sum(s['reward'] for s in t2)
-        p1 = math.exp(R1) / (math.exp(R1) + math.exp(R2))
+        m = max(R1, R2)
+        p1 = math.exp(R1-m) / (math.exp(R1-m) + math.exp(R2-m))
         if np.random.uniform()<p1:
             pairs.append({
                 "traj_acc": t1, "traj_rej": t2,
