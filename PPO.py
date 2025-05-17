@@ -123,15 +123,32 @@ def evaluate_policy(policy, env, n_episodes=10, seed=2000): # different seed fro
             mean return: average return over n_episodes
             returns: list of returns for each episode (complete episode)
     '''
+    is_vec = hasattr(env, "num_envs") 
     returns = []
     state = env.reset(seed=seed) # reset the environment with a given seed
     for i in range(n_episodes):
         state = env.reset()
         done = False
         ep_ret = 0.0
+
         while not done:
-            a, _, _ = policy.act(state)
-            state, r, done, _ = env.step(a)
+            a, _, _ = policy.act(state)        # shape (action_dim,) or scalar
+
+            if is_vec:                         # -------- vector env branch -------
+                if np.isscalar(a):
+                    a_batch = np.array([[a]], dtype=np.float32)
+                elif a.ndim == 1:
+                    a_batch = a.reshape(1, -1)
+                else:
+                    a_batch = a                # already (n_envs, action_dim)
+
+                state_b, r_b, done_b, _ = env.step(a_batch)
+                state, r, done = state_b[0], r_b[0], done_b[0]
+
+            else:                              # -------- single env branch --------
+                state, r, done, _ = env.step(a)
+
             ep_ret += r
+
         returns.append(ep_ret)
     return np.mean(returns), returns

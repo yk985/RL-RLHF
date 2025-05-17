@@ -3,6 +3,32 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
+# def generate_trajectory(policy, env, max_steps=500, seed = 0): # seed s.t. pi1 and pi2 have same initial state
+#     """
+#     Roll out one episode with `policy` in `env` up to max_steps.
+#     Returns a list of dicts: [{"state": s, "action": a, "reward": r, "log_prob": lp, "value": v}, ...].
+#     """
+#     state = env.reset(seed=seed) # Reset the environment and set the seed
+#     trajectory = []
+#     for step in range(max_steps):
+#         # policy.act now returns action, log_prob, and value estimate
+#         action, log_prob, value = policy.act(state)
+#         action_int = action.item() if isinstance(action, torch.Tensor) else action
+#         next_state, reward, done, _ = env.step(action_int)
+#         trajectory.append({
+#             "state": state,
+#             "action": action,
+#             "reward": reward,
+#             "log_prob": log_prob,
+#             "value": value
+#         })
+#         state = next_state
+#         if done:
+#             # print(f"Episode finished after {step+1} timesteps; the trajectory leads to a lost of control")
+#             break
+#     return trajectory
+
+# Updated for compatibility with SB3
 def generate_trajectory(policy, env, max_steps=500, seed = 0): # seed s.t. pi1 and pi2 have same initial state
     """
     Roll out one episode with `policy` in `env` up to max_steps.
@@ -10,22 +36,31 @@ def generate_trajectory(policy, env, max_steps=500, seed = 0): # seed s.t. pi1 a
     """
     state = env.reset(seed=seed) # Reset the environment and set the seed
     trajectory = []
-    for step in range(max_steps):
-        # policy.act now returns action, log_prob, and value estimate
+    for _ in range(max_steps):
         action, log_prob, value = policy.act(state)
-        action_int = action.item() if isinstance(action, torch.Tensor) else action
-        next_state, reward, done, _ = env.step(action_int)
-        trajectory.append({
-            "state": state,
-            "action": action,
-            "reward": reward,
-            "log_prob": log_prob,
-            "value": value
-        })
+
+        # ── wrap the action for DummyVecEnv ──────────────────────────
+        if hasattr(env, "num_envs"):                 # vector env branch
+            if np.isscalar(action):
+                a_batch = np.array([[action]], dtype=np.float32)  # (1,1)
+            elif isinstance(action, np.ndarray) and action.ndim == 1:
+                a_batch = action.reshape(1, -1)                   # (1, act_dim)
+            else:
+                a_batch = action                                  # already batched
+
+            next_obs_b, r_b, done_b, _ = env.step(a_batch)
+            next_state, reward, done = next_obs_b[0], r_b[0], done_b[0]
+        else:                                       # single-env branch
+            next_state, reward, done, _ = env.step(action)
+        # ────────────────────────────────────────────────────────────
+
+        trajectory.append(
+            dict(state=state, action=action, reward=reward,
+                log_prob=log_prob, value=value)
+        )
         state = next_state
         if done:
-            # print(f"Episode finished after {step+1} timesteps; the trajectory leads to a lost of control")
             break
-    return trajectory
 
+    return trajectory
 
