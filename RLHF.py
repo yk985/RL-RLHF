@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
-from pairs_generator import *
+from pairs_generator import compute_reward_from_traj, extract_states_actions
 from Generate_traj_func import generate_trajectory
 
 
