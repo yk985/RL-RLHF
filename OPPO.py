@@ -1,20 +1,13 @@
 import numpy as np
 import torch
 import gym
-import time
 from collections import deque
 from tqdm.auto import tqdm
 
-def baseline_1(state):
-    """
-    A simple hand-coded baseline: uses the pole angle theta to estimate value.
-    """
-    theta = state[2]   # cartpole’s pole angle
-    return 25 * np.cos(theta)
+# for the display of the environment
+import time
 
 
-def baseline_0(state):
-    return 0.0
 
 def baseline_CartPole_v0_Fla(state, w_angle=0.8, w_ang_vel=0.8): 
     """
@@ -103,7 +96,7 @@ def select_action(policy, obs):
 def OPPO_update(policy,
                 optimizer,
                 env,
-                baseline=baseline_0,
+                baseline=None,
                 n_episodes=1000,
                 max_t=1000,
                 gamma=1.0,
@@ -134,10 +127,7 @@ def OPPO_update(policy,
     """
     # Set random seed
     # not sur about this
-    env.reset(seed=seed)
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    
+    set_seed(seed, env)
     # checkpoint for saving pi2
     checkpoint_reached = False
     
@@ -147,7 +137,7 @@ def OPPO_update(policy,
     # stores the scores of all episodes
     scores = []
 
-    for e in tqdm(range(1, n_episodes + 1), desc="Training", unit="episode", leave=True):
+    for e in range(1, n_episodes + 1): #, desc="Training", unit="episode", leave=True):
         saved_log_probs = []
         rewards         = []
         baseline_vals   = []
@@ -159,8 +149,11 @@ def OPPO_update(policy,
 
             state, reward, done, _ = env.step(action)
             rewards.append(reward)
-            baseline_vals.append(baseline(state))      # does it goes after or before the action?
-
+            if baseline is not None:
+                baseline_vals.append(baseline(state))      # does it goes after or before the action?
+            elif baseline is None:
+                baseline_vals.append(0)                    # if no baseline, use 0
+            
             if done:
                 break
 
@@ -215,8 +208,8 @@ def OPPO_update(policy,
                 f"Environment reached the half target score in {e} episodes! "
                 + f"Average Score: {np.mean(scores_deque):.2f}"
             )
-            print(f"Saving the policy in pi2_oppo_{env_name}_seed_{seed}.pth...")
-            torch.save(policy.state_dict(), f"pi2_oppo_{env_name}_seed_{seed}.pth")
+            print(f"Saving the policy in pi2_ref_{env_name}_seed_{seed}.pth...")
+            torch.save(policy.state_dict(), f"pi2_ref_{env_name}_seed_{seed}.pth")
             checkpoint_reached = True
         
         # Stopping criteria with target score
@@ -225,17 +218,22 @@ def OPPO_update(policy,
                 f"Environment reached the target score (cumulative rewards) in {e} episodes! "
                 + f"Average Score: {np.mean(scores_deque):.2f}"
             )
-            print(f"Saving the policy in pi1_oppo_{env_name}_seed_{seed}.pth...")
-            torch.save(policy.state_dict(), f"pi1_oppo_{env_name}_seed_{seed}.pth")
+            print(f"Saving the policy in pi1_ref_{env_name}_seed_{seed}.pth...")
+            torch.save(policy.state_dict(), f"pi1_ref_{env_name}_seed_{seed}.pth")
             break
         
-        # Early stopping criteria
-        # but still problem with the dependence on the environment
-        # if early_stop and np.mean(scores_deque) >= 195.0:
-        #     print(
-        #         f"Environment solved in {e-100} episodes! "
-        #         + f"Average Score: {np.mean(scores_deque):.2f}"
-        #     )
-        #     break
-
     return scores
+import random
+def set_seed(seed, env=None):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if env is not None:
+        env.reset(seed=seed)
+        env.action_space.seed(seed)
+        env.observation_space.seed(seed)
+
+    
+    
+    
+    

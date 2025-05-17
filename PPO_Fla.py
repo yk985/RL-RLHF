@@ -39,7 +39,7 @@ class Policy_v3(nn.Module):
             raise TypeError(f"Unsupported state type: {type(state)}")
 
         logits, value = self.forward(state)
-        dist = Categorical(logits=logits)
+        dist = torch.distributions.Categorical(logits=logits)
         action = dist.sample()
         log_prob = dist.log_prob(action)
         return action, log_prob, value
@@ -402,7 +402,7 @@ def compare_policies(env_name, pi_ref, pi_rlhf, n_episodes=100, seed=42, success
     plt.legend()
     plt.show()
 
-def evaluate_policy_fla(env_name, policy, n_episodes=100, seed=42):
+def evaluate_policy_fla(env_name, policy, n_episodes=50, seed=42):
     env = gym.make(env_name)
     set_seed(seed, env)
     total_rewards = []
