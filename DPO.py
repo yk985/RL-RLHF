@@ -43,10 +43,10 @@ def dpo_loss_sac(policy, ref_policy, dataset, beta):
         
 
         # Use log probabilities, add small epsilon for stability
-        log_pi_pos = compute_logprob_trajectory_sac(policy, pair["traj_acc"], device=device)
-        log_pi_neg = compute_logprob_trajectory_sac(policy, pair["traj_rej"], device=device)
-        log_ref_pos = compute_logprob_trajectory_sac(ref_policy, pair["traj_acc"], device=device)
-        log_ref_neg = compute_logprob_trajectory_sac(ref_policy, pair["traj_rej"], device=device)
+        log_pi_pos = compute_logprob_trajectory_sac(policy, pair["traj_acc"], device=device)+ 1e-8
+        log_pi_neg = compute_logprob_trajectory_sac(policy, pair["traj_rej"], device=device)+ 1e-8
+        log_ref_pos = compute_logprob_trajectory_sac(ref_policy, pair["traj_acc"], device=device)+ 1e-8
+        log_ref_neg = compute_logprob_trajectory_sac(ref_policy, pair["traj_rej"], device=device)+ 1e-8
 
 
         advantage = beta * ((log_pi_pos - log_ref_pos) - (log_pi_neg - log_ref_neg))
@@ -63,4 +63,4 @@ def DPO_training_sac(policy, ref_policy, preference_dataset, beta,optimizer,nb_e
         optimizer.step()
         
         if epoch % 10 == 0:
-            print(f"Epoch {epoch}: DPO Loss = {loss.item():.4f}")
+            print(f"Epoch {epoch}: DPO Loss = {loss.item():e}")

@@ -4,6 +4,11 @@ import torch.nn.functional as F
 from pairs_generator import compute_reward_from_traj, extract_states_actions
 from Generate_traj_func import generate_trajectory
 
+from torch.distributions import Categorical
+from torch.utils.data import TensorDataset, DataLoader
+from PPO import RolloutBuffer                         # already in your repo
+
+
 
 #A voir si necessaire
 class RewardModel(nn.Module):
@@ -165,3 +170,116 @@ def train_policy_v2(policy, ref_policy, reward_model, env, optimizer, total_upda
 
         print(f"[Update {update_iter}] total Loss: {total_loss.item():.4f}")
 
+
+def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
+        policy, ref_policy, reward_model, env, optimizer,
+        N               = 100,     # how many PPO updates
+        K               = 10,     # how many roll-outs per update
+        max_steps       = 200,    # horizon per roll-out
+        beta            = 0.1,    # KL penalty coefficient
+        device          = "cpu",
+        gamma           = 0.9,   # discount factor
+        lam             = 0.95,   # GAE(λ)
+        clip_eps        = 0.2,    # PPO clip
+        ppo_epochs      = 10,      # gradient epochs per update
+        batch_size      = 64,
+        c1              = 0.5,    # value-loss coefficient
+        c2              = 0.0):  # entropy-bonus coefficient
+    """
+    PPO with an RLHF reward:
+        r_t = r_φ(s_t,a_t) − β ( log π_θ(a_t|s_t) − log π_ref(a_t|s_t) )
+
+    After collecting K trajectories (θ is frozen while collecting),
+    we optimise the clipped PPO surrogate for `ppo_epochs` epochs.
+    """
+    policy.to(device)
+    ref_policy.to(device)
+    reward_model.to(device)
+    ref_policy.eval()            # must stay frozen
+
+    for update_idx in range(1, N + 1):
+        buffer = RolloutBuffer()                     # stores one big batch
+        steps_collected = 0
+
+        # 1) ───── Roll-out K episodes with π_θ  ─────────────────────────
+        for _ in range(K):
+            state, _done = env.reset(), False
+            while not _done and steps_collected < max_steps:
+                state_t   = torch.as_tensor(state, dtype=torch.float32,
+                                            device=device)
+                with torch.no_grad():               # θ_old
+                    probs, value = policy(state_t.unsqueeze(0))
+                dist        = Categorical(probs)
+                action_t    = dist.sample()                 # tensor(…)
+                logp_old    = dist.log_prob(action_t)       # detach later
+                a_int       = action_t.item()
+
+                # ref-policy KL term (log-ratio, not full KL across π)
+                with torch.no_grad():
+                    probs_ref, _ = ref_policy(state_t.unsqueeze(0))
+                logp_ref = Categorical(probs_ref).log_prob(action_t)
+
+                # RLHF reward for this timestep
+                with torch.no_grad():
+                    r_model = reward_model(state_t, action_t.unsqueeze(0))
+                shaped_r   = (r_model
+                              - beta * (logp_old - logp_ref)).item()
+
+                # step the env
+                next_state, _env_r, _done, _ = env.step(a_int)
+
+                buffer.store(state, a_int, logp_old, shaped_r, value, _done)
+                state = next_state
+                steps_collected += 1
+
+                if _done:
+                    break
+
+        # 2) ───── GAE returns & advantages ──────────────────────────────
+        last_state = torch.as_tensor(state, dtype=torch.float32, device=device)
+        with torch.no_grad():
+            _, last_val = policy(last_state.unsqueeze(0))
+        if _done:                                           # trajectory ended
+            last_val = torch.zeros_like(last_val)
+        returns, advs = buffer.compute_returns_and_advantages(
+                            last_val, gamma=gamma, lam=lam)
+
+        # put everything on the correct device
+        states      = torch.stack(buffer.states).to(device)
+        actions     = torch.tensor(buffer.actions, device=device)
+        logp_old    = torch.stack(buffer.logprobs).to(device)
+        returns     = returns.to(device)
+        advs        = advs.to(device)
+
+        # 3) ───── PPO surrogate optimisation ────────────────────────────
+        dataset = TensorDataset(states, actions, logp_old, returns, advs)
+        loader  = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+        for _ in range(ppo_epochs):
+            for S, A, LP_old, R, ADV in loader:
+                probs, V = policy(S)
+                dist     = Categorical(probs)
+                LP_new   = dist.log_prob(A)
+
+                ratio    = torch.exp(LP_new - LP_old)
+                surr1    = ratio * ADV
+                surr2    = torch.clamp(ratio, 1-clip_eps, 1+clip_eps) * ADV
+                policy_loss = -torch.min(surr1, surr2).mean()
+
+                value_loss  = F.mse_loss(V, R)
+                entropy_bns = dist.entropy().mean()
+
+                loss = policy_loss + c1 * value_loss - c2 * entropy_bns
+
+                optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(policy.parameters(), 0.5)
+                optimizer.step()
+
+        print(f"[{update_idx}/{N}] "
+              f"batch steps={len(buffer.rewards):4d}  "
+              f"loss={loss.item():.4f}  "
+              f"policy-loss={policy_loss.item():.4f}  "
+              f"value-loss={value_loss.item():.4f}")
+
+        buffer.clear()           # ready for the next iteration
