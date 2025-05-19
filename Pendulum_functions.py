@@ -4,6 +4,15 @@ import math
 import numpy as np
 import torch
 
+from stable_baselines3.sac.policies import SACPolicy
+
+if not hasattr(SACPolicy, "action_dist"):          # SB3 < 1.7
+    @property
+    def _action_dist(self):                        # expose actor.action_dist
+        return self.actor.action_dist
+    SACPolicy.action_dist = _action_dist
+
+
 
 def evaluate_policy_SAC(policy, env, n_episodes: int, seed: int = None, device="cpu"):
     if seed is not None:
@@ -88,6 +97,38 @@ def sample_preference_pairs(pi1, pi2, env, K=100):
             })
     return pairs
 
+# def compute_logprob_trajectory_sac(policy, trajectory, device="cpu"):
+#     """
+#     π is continuous:  π(a|s) ~ N(mean(s), std(s))
+#     We sum over t:  log π(τ) = ∑_t log π(a_t | s_t).
+#     """
+#     # 1) build state-batch
+#     # states_np = np.stack([step["state"] for step in trajectory], axis=0).astype(np.float32)
+#     states_np = np.stack(
+#         [np.asarray(step["state"]).squeeze()  # ← remove extra (1, …) dims
+#         for step in trajectory],
+#         axis=0, dtype=np.float32
+#         )  
+
+#     states    = torch.from_numpy(states_np).to(device)   # shape [T, obs_dim]
+
+#     # 2) build action-batch as floats
+#     acts_np   = np.stack([step["action"] for step in trajectory], axis=0).astype(np.float32)
+#     actions   = torch.from_numpy(acts_np).to(device)     # shape [T, action_dim]
+
+#     # 3) get Gaussian params from the policy
+#     #    (SB3 SACPolicy.get_action_dist_params returns: mean, log_std, kwargs)
+#     mean, log_std, dist_kwargs = policy.actor.get_action_dist_params(states)
+#     dist = policy.actor.action_dist.proba_distribution(mean, log_std, **dist_kwargs)
+
+
+#     # 4) log_prob has shape [T, action_dim] for multi-dim actions
+#     log_prob_per_dim = dist.log_prob(actions)
+#     #    so sum across action dims → [T]
+#     log_prob_per_step = log_prob_per_dim.sum(dim=-1)
+#     # 5) sum over time → scalar
+#     return log_prob_per_step.sum()
+
 def compute_logprob_trajectory_sac(policy, trajectory, device="cpu"):
     """
     π is continuous:  π(a|s) ~ N(mean(s), std(s))
@@ -107,15 +148,14 @@ def compute_logprob_trajectory_sac(policy, trajectory, device="cpu"):
     acts_np   = np.stack([step["action"] for step in trajectory], axis=0).astype(np.float32)
     actions   = torch.from_numpy(acts_np).to(device)     # shape [T, action_dim]
 
-    # 3) get Gaussian params from the policy
-    #    (SB3 SACPolicy.get_action_dist_params returns: mean, log_std, kwargs)
-    mean, log_std, dist_kwargs = policy.actor.get_action_dist_params(states)
-    dist = policy.actor.action_dist.proba_distribution(mean, log_std, **dist_kwargs)
+    high = policy.action_space.high           # array([2.]) for Pendulum
+    acts_squashed = np.clip(acts_np / high, -1 + 1e-6, 1 - 1e-6)  # scale to [-1,1]
 
+    actions = torch.from_numpy(acts_squashed).to(device)           # [T, act_dim]
 
-    # 4) log_prob has shape [T, action_dim] for multi-dim actions
-    log_prob_per_dim = dist.log_prob(actions)
-    #    so sum across action dims → [T]
-    log_prob_per_step = log_prob_per_dim.sum(dim=-1)
-    # 5) sum over time → scalar
-    return log_prob_per_step.sum()
+    mean, log_std, dist_kwargs = policy.get_action_dist_params(states)
+    dist = policy.action_dist.proba_distribution(mean, log_std, **dist_kwargs)
+
+    logp = dist.log_prob(actions).sum(-1)      # [T]  sum across action dims
+    return logp.sum()                          # scalar = log π(τ)
+
