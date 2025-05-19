@@ -128,6 +128,7 @@ def sample_preference_pairs(pi1, pi2, env, K=100):
 #     log_prob_per_step = log_prob_per_dim.sum(dim=-1)
 #     # 5) sum over time → scalar
 #     return log_prob_per_step.sum()
+#     # scalar = log π(τ)
 
 def compute_logprob_trajectory_sac(policy, trajectory, device="cpu"):
     """
