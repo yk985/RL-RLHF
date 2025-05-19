@@ -208,8 +208,8 @@ def OPPO_update(policy,
                 f"Environment reached the half target score in {e} episodes! "
                 + f"Average Score: {np.mean(scores_deque):.2f}"
             )
-            print(f"Saving the policy in pi2_ref_{env_name}_seed_{seed}.pth...")
-            torch.save(policy.state_dict(), f"pi2_ref_{env_name}_seed_{seed}.pth")
+            print(f"Saving the policy in ./Policies/pi2_ref_{env_name}_seed_{seed}.pth")
+            torch.save(policy.state_dict(), f"./Policies/pi2_ref_{env_name}_seed_{seed}.pth")
             checkpoint_reached = True
         
         # Stopping criteria with target score
@@ -218,8 +218,8 @@ def OPPO_update(policy,
                 f"Environment reached the target score (cumulative rewards) in {e} episodes! "
                 + f"Average Score: {np.mean(scores_deque):.2f}"
             )
-            print(f"Saving the policy in pi1_ref_{env_name}_seed_{seed}.pth...")
-            torch.save(policy.state_dict(), f"pi1_ref_{env_name}_seed_{seed}.pth")
+            print(f"Saving the policy in ./Policies/pi1_ref_{env_name}_seed_{seed}.pth...")
+            torch.save(policy.state_dict(), f"./Policies/pi1_ref_{env_name}_seed_{seed}.pth")
             break
         
     return scores

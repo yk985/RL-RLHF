@@ -7,7 +7,7 @@ from Generate_traj_func import generate_trajectory
 from torch.distributions import Categorical
 from torch.utils.data import TensorDataset, DataLoader
 from PPO import RolloutBuffer                         # already in your repo
-
+from tqdm.auto import tqdm
 
 
 #A voir si necessaire
@@ -20,14 +20,40 @@ class RewardModel(nn.Module):
             nn.Linear(hidden_dim, 1)
         )
 
+    # def forward(self, state, action):
+    #     if state.dim() == 1:
+    #         state = state.unsqueeze(0)  # (1, d)
+    #     if action.dim() == 0:
+    #         action = action.unsqueeze(0)  # (1,)
+    #     action_onehot = F.one_hot(action, num_classes=2).float()  # (1, 2)
+    #     x = torch.cat([state, action_onehot], dim=-1)  # (1, d + 2)
+    #     return self.fc(x).squeeze(-1)
+
     def forward(self, state, action):
-        # One-hot encode action
-        action_onehot = F.one_hot(action, num_classes=2).float()
-        x = torch.cat([state, action_onehot], dim=-1)
+        if state.dim() == 1:
+            state = state.unsqueeze(0)  # (1, d)
+        if action.dim() == 0:
+            action = action.unsqueeze(0)  # (1,)
+        elif action.dim() == 2 and action.size(1) == 1:
+            action = action.squeeze(1)  # (batch_size,)
+
+        action_onehot = F.one_hot(action, num_classes=2).float()  # (1, 2)
+        
+        if action_onehot.dim() == 3:
+            action_onehot = action_onehot.squeeze(1)  # remove spurious middle dim
+
+        x = torch.cat([state, action_onehot], dim=-1)  # (1, d + 2)
         return self.fc(x).squeeze(-1)
 
+
+    # def forward(self, state, action):
+    #     # One-hot encode action
+    #     action_onehot = F.one_hot(action, num_classes=2).float()
+    #     x = torch.cat([state, action_onehot], dim=-1)
+    #     return self.fc(x).squeeze(-1)
+
 def train_reward_model(reward_model, dataset, optimizer, epochs=1000):
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs), desc="Training Reward Model", leave=False, colour="#14C2C7"):
         total_loss = 0
         for pair in dataset:
             r_pos = compute_reward_from_traj(reward_model,pair["traj_acc"])
@@ -39,7 +65,8 @@ def train_reward_model(reward_model, dataset, optimizer, epochs=1000):
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
-        print(f"Epoch {epoch}: Reward model loss = {total_loss:.4f}")
+        if epoch % 10 == 0:
+            print(f"Epoch {epoch}: Reward model loss = {total_loss:.4f}")
 
 
 def compute_kl_divergence(p_probs, q_probs):
@@ -74,11 +101,11 @@ def train_policy_from_rollouts_n_updates(policy, ref_policy, reward_model, env, 
             with torch.no_grad():
                 pi_ref, _ = ref_policy(states)
 
-            dist = torch.distributions.Categorical(pi)
+            dist = torch.distributions.Categorical(probs=pi)
             reward = compute_reward_from_traj(reward_model,traj)
             kl = torch.distributions.kl.kl_divergence(
-                torch.distributions.Categorical(pi_ref),
-                torch.distributions.Categorical(pi)
+                torch.distributions.Categorical(probs=pi_ref),
+                torch.distributions.Categorical(probs=pi)
             )
 
             loss = (-reward + beta * kl).mean()
@@ -89,8 +116,8 @@ def train_policy_from_rollouts_n_updates(policy, ref_policy, reward_model, env, 
         optimizer.zero_grad()
         avg_loss.backward()
         optimizer.step()
-
-        print(f"[Update {update_step+1}/{N}] Avg Loss: {avg_loss.item():.4f}")
+        if update_step % 10 == 9 or update_step == N - 1 or update_step == 0:
+            print(f"[Update {update_step+1}/{N}]   \t Avg Loss: {avg_loss.item():.2f}")
 
 def compute_gae(trajectory, gamma=0.99, lam=0.95):
     rewards = [step["reward"] for step in trajectory]
@@ -205,11 +232,10 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
         for _ in range(K):
             state, _done = env.reset(), False
             while not _done and steps_collected < max_steps:
-                state_t   = torch.as_tensor(state, dtype=torch.float32,
-                                            device=device)
+                state_t   = torch.as_tensor(state, dtype=torch.float32, device=device)
                 with torch.no_grad():               # θ_old
                     probs, value = policy(state_t.unsqueeze(0))
-                dist        = Categorical(probs)
+                dist        = Categorical(probs=probs)
                 action_t    = dist.sample()                 # tensor(…)
                 logp_old    = dist.log_prob(action_t)       # detach later
                 a_int       = action_t.item()
@@ -217,13 +243,12 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
                 # ref-policy KL term (log-ratio, not full KL across π)
                 with torch.no_grad():
                     probs_ref, _ = ref_policy(state_t.unsqueeze(0))
-                logp_ref = Categorical(probs_ref).log_prob(action_t)
+                logp_ref = Categorical(probs=probs_ref).log_prob(action_t)
 
                 # RLHF reward for this timestep
                 with torch.no_grad():
                     r_model = reward_model(state_t, action_t.unsqueeze(0))
-                shaped_r   = (r_model
-                              - beta * (logp_old - logp_ref)).item()
+                shaped_r   = (r_model - beta * (logp_old - logp_ref)).item()
 
                 # step the env
                 next_state, _env_r, _done, _ = env.step(a_int)
@@ -241,8 +266,7 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
             _, last_val = policy(last_state.unsqueeze(0))
         if _done:                                           # trajectory ended
             last_val = torch.zeros_like(last_val)
-        returns, advs = buffer.compute_returns_and_advantages(
-                            last_val, gamma=gamma, lam=lam)
+        returns, advs = buffer.compute_returns_and_advantages(last_val, gamma=gamma, lam=lam)
 
         # put everything on the correct device
         states      = torch.stack(buffer.states).to(device)
@@ -258,7 +282,7 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
         for _ in range(ppo_epochs):
             for S, A, LP_old, R, ADV in loader:
                 probs, V = policy(S)
-                dist     = Categorical(probs)
+                dist     = Categorical(probs=probs)
                 LP_new   = dist.log_prob(A)
 
                 ratio    = torch.exp(LP_new - LP_old)
@@ -276,10 +300,19 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
                 torch.nn.utils.clip_grad_norm_(policy.parameters(), 0.5)
                 optimizer.step()
 
-        print(f"[{update_idx}/{N}] "
-              f"batch steps={len(buffer.rewards):4d}  "
-              f"loss={loss.item():.4f}  "
-              f"policy-loss={policy_loss.item():.4f}  "
-              f"value-loss={value_loss.item():.4f}")
+        if update_idx % 10 == 0:
+            # KL divergence between the new and old policy
+            kl_div = compute_policy_kl(policy, ref_policy, states, actions)
+            print(f"[{update_idx}/{N}] "
+                  f"KL-divergence: {kl_div.item():.2f}  "
+                  f"policy-loss: {policy_loss.item():.2f}  "
+                  f"loss={loss.item():.2f}  "
+                  f"value-loss: {value_loss.item():.2f}  "
+                  f"entropy: {entropy_bns.item():.2f}")
+        # print(f"[{update_idx}/{N}] "
+        #       f"batch steps={len(buffer.rewards):4d}  "
+        #       f"loss={loss.item():.4f}  "
+        #       f"policy-loss={policy_loss.item():.4f}  "
+        #       f"value-loss={value_loss.item():.4f}")
 
         buffer.clear()           # ready for the next iteration
