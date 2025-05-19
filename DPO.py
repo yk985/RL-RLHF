@@ -37,23 +37,38 @@ def DPO_training(policy, ref_policy, preference_dataset, beta,optimizer,nb_epoch
 
 
 #As SAC use in Pendulum use a different policy:
-def dpo_loss_sac(policy, ref_policy, dataset, beta):
-    losses = []
-    for pair in dataset:
+# def dpo_loss_sac(policy, ref_policy, dataset, beta):
+#     losses = []
+#     for pair in dataset:
         
 
-        # Use log probabilities, add small epsilon for stability
-        log_pi_pos = compute_logprob_trajectory_sac(policy, pair["traj_acc"], device=device)+ 1e-8
-        log_pi_neg = compute_logprob_trajectory_sac(policy, pair["traj_rej"], device=device)+ 1e-8
-        log_ref_pos = compute_logprob_trajectory_sac(ref_policy, pair["traj_acc"], device=device)+ 1e-8
-        log_ref_neg = compute_logprob_trajectory_sac(ref_policy, pair["traj_rej"], device=device)+ 1e-8
+#         # Use log probabilities, add small epsilon for stability
+#         log_pi_pos = compute_logprob_trajectory_sac(policy, pair["traj_acc"], device=device)+ 1e-8
+#         log_pi_neg = compute_logprob_trajectory_sac(policy, pair["traj_rej"], device=device)+ 1e-8
+#         log_ref_pos = compute_logprob_trajectory_sac(ref_policy, pair["traj_acc"], device=device)+ 1e-8
+#         log_ref_neg = compute_logprob_trajectory_sac(ref_policy, pair["traj_rej"], device=device)+ 1e-8
 
 
-        advantage = beta * ((log_pi_pos - log_ref_pos) - (log_pi_neg - log_ref_neg))
-        loss = -F.logsigmoid(advantage)
-        losses.append(loss)
+#         advantage = beta * ((log_pi_pos - log_ref_pos) - (log_pi_neg - log_ref_neg))
+#         loss = -F.logsigmoid(advantage)
+#         losses.append(loss)
     
+#     return torch.stack(losses).mean()
+
+def dpo_loss_sac(policy, ref_policy, dataset, beta=1e-3, device="cpu"):
+    losses = []
+    for pair in dataset:
+        log_pi_pos  = compute_logprob_trajectory_sac(policy,     pair["traj_acc"], device)
+        log_pi_neg  = compute_logprob_trajectory_sac(policy,     pair["traj_rej"], device)
+        log_ref_pos = compute_logprob_trajectory_sac(ref_policy, pair["traj_acc"], device)
+        log_ref_neg = compute_logprob_trajectory_sac(ref_policy, pair["traj_rej"], device)
+
+        diff  = (log_pi_pos - log_pi_neg) - (log_ref_pos - log_ref_neg)
+        diff_clamped = diff.clamp(-10.0, 10.0)  
+        losses.append(torch.nn.functional.softplus(-beta * diff_clamped))   # stable
+
     return torch.stack(losses).mean()
+
 
 def DPO_training_sac(policy, ref_policy, preference_dataset, beta,optimizer,nb_epochs=500):
     for epoch in range(nb_epochs):
