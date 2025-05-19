@@ -201,14 +201,14 @@ def train_policy_v2(policy, ref_policy, reward_model, env, optimizer, total_upda
 def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
         policy, ref_policy, reward_model, env, optimizer,
         N               = 100,     # how many PPO updates
-        K               = 10,     # how many roll-outs per update
-        max_steps       = 200,    # horizon per roll-out
+        K               = 10,     # how many roll-outs per update. Here we use only max_steps
+        max_steps       = 2000,    # horizon per roll-out
         beta            = 0.1,    # KL penalty coefficient
         device          = "cpu",
         gamma           = 0.9,   # discount factor
         lam             = 0.95,   # GAE(λ)
         clip_eps        = 0.2,    # PPO clip
-        ppo_epochs      = 10,      # gradient epochs per update
+        ppo_epochs      = 4,      # gradient epochs per update
         batch_size      = 64,
         c1              = 0.5,    # value-loss coefficient
         c2              = 0.0):  # entropy-bonus coefficient
@@ -229,47 +229,54 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
         steps_collected = 0
 
         # 1) ───── Roll-out K episodes with π_θ  ─────────────────────────
-        for _ in range(K):
-            state, _done = env.reset(), False
-            while not _done and steps_collected < max_steps:
-                state_t   = torch.as_tensor(state, dtype=torch.float32, device=device)
-                with torch.no_grad():               # θ_old
-                    probs, value = policy(state_t.unsqueeze(0))
-                dist        = Categorical(probs=probs)
-                action_t    = dist.sample()                 # tensor(…)
-                logp_old    = dist.log_prob(action_t)       # detach later
-                a_int       = action_t.item()
+        # for _ in range(K):
+        state, done = env.reset(), False
+        while not done and steps_collected < max_steps:
+        # for _ in range(max_steps):                     # fixed total steps
+            state_t = torch.as_tensor(state, dtype=torch.float32, device=device)
 
-                # ref-policy KL term (log-ratio, not full KL across π)
-                with torch.no_grad():
-                    probs_ref, _ = ref_policy(state_t.unsqueeze(0))
-                logp_ref = Categorical(probs=probs_ref).log_prob(action_t)
+            with torch.no_grad():
+                probs, value = policy(state_t.unsqueeze(0))
+            dist       = Categorical(probs=probs)
+            action     = dist.sample()
+            logp_old   = dist.log_prob(action).detach()   #  ← detach
+            a_int      = action.item()
 
-                # RLHF reward for this timestep
-                with torch.no_grad():
-                    r_model = reward_model(state_t, action_t.unsqueeze(0))
-                shaped_r   = (r_model - beta * (logp_old - logp_ref)).item()
+            # log π_ref(a|s)
+            with torch.no_grad():
+                probs_ref, _ = ref_policy(state_t.unsqueeze(0))
+            logp_ref = Categorical(probs=probs_ref).log_prob(action)
 
-                # step the env
-                next_state, _env_r, _done, _ = env.step(a_int)
+            # # RLHF reward (still raw for now)
+            with torch.no_grad():
+                r_model = reward_model(state_t, action.unsqueeze(0))
+                r_model = r_model.item()  # convert to scalar
 
-                buffer.store(state, a_int, logp_old, shaped_r, value, _done)
-                state = next_state
-                steps_collected += 1
+            # step the env
+            next_state, _, done, _ = env.step(a_int)
 
-                if _done:
-                    break
+            buffer.store(state, a_int, logp_old, r_model, value.detach(), done)
+            state = next_state
 
-        # 2) ───── GAE returns & advantages ──────────────────────────────
+            if done:          
+                state, done = env.reset(), False # start a new episode
+            
+            steps_collected += 1
+
+        # use the real 'done' flag from the buffer’s last element
+        last_done = buffer.dones[-1]
         last_state = torch.as_tensor(state, dtype=torch.float32, device=device)
         with torch.no_grad():
             _, last_val = policy(last_state.unsqueeze(0))
-        if _done:                                           # trajectory ended
+        if last_done:
             last_val = torch.zeros_like(last_val)
-        returns, advs = buffer.compute_returns_and_advantages(last_val, gamma=gamma, lam=lam)
+        returns, advs = buffer.compute_returns_and_advantages(last_val, gamma, lam)
+        advs = (advs - advs.mean()) / (advs.std() + 1e-8)  # normalise
+        returns = (returns - returns.mean()) / (returns.std() + 1e-8)  # normalise
 
         # put everything on the correct device
         states      = torch.stack(buffer.states).to(device)
+        # rewards       = torch.stack(buffer.rewards).to(device)    
         actions     = torch.tensor(buffer.actions, device=device)
         logp_old    = torch.stack(buffer.logprobs).to(device)
         returns     = returns.to(device)
@@ -281,7 +288,18 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
 
         for _ in range(ppo_epochs):
             for S, A, LP_old, R, ADV in loader:
+            # to get KL in the loss:
+                pi, _     = policy(S)           # S: [T,obs_dim]
+                with torch.no_grad():
+                    pi_ref, _ = ref_policy(S)
+                dist     = torch.distributions.Categorical(probs=pi)
+                dist_ref = torch.distributions.Categorical(probs=pi_ref)
+                kl_per_step = torch.distributions.kl.kl_divergence(dist_ref, dist)
+                kl2 = kl_per_step.mean()
+
                 probs, V = policy(S)
+                v_clip = V + (R - V).clamp(-clip_eps, clip_eps)  # PPO-2 style
+
                 dist     = Categorical(probs=probs)
                 LP_new   = dist.log_prob(A)
 
@@ -290,10 +308,13 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
                 surr2    = torch.clamp(ratio, 1-clip_eps, 1+clip_eps) * ADV
                 policy_loss = -torch.min(surr1, surr2).mean()
 
-                value_loss  = F.mse_loss(V, R)
+                # value_loss  = F.mse_loss(V, R)
+                value_loss =  torch.max(
+                 (V - R) ** 2,
+                 (v_clip.detach() - R) ** 2).mean()
                 entropy_bns = dist.entropy().mean()
 
-                loss = policy_loss + c1 * value_loss - c2 * entropy_bns
+                loss = policy_loss + c1 * value_loss - c2 * entropy_bns + beta * kl2
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -303,12 +324,18 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
         if update_idx % 10 == 0:
             # KL divergence between the new and old policy
             kl_div = compute_policy_kl(policy, ref_policy, states, actions)
+            target_kl = 0.1
+            # if kl_div > target_kl * 1.5:
+            #     beta *= 1.5
+            # elif kl_div < target_kl / 1.5:
+            #     beta /= 1.5
             print(f"[{update_idx}/{N}] "
-                  f"KL-divergence: {kl_div.item():.2f}  "
-                  f"policy-loss: {policy_loss.item():.2f}  "
-                  f"loss={loss.item():.2f}  "
-                  f"value-loss: {value_loss.item():.2f}  "
-                  f"entropy: {entropy_bns.item():.2f}")
+                #   f"KL-divergence: {kl_div.item():.2f}  "
+                  f"KL-divergence: {kl2.item():e}  "
+                  f"policy-loss: {policy_loss.item():e}  "
+                  f"loss={loss.item():e} "
+                  f"value-loss: {value_loss.item():e}  "
+                  f"entropy: {entropy_bns.item():e}")
         # print(f"[{update_idx}/{N}] "
         #       f"batch steps={len(buffer.rewards):4d}  "
         #       f"loss={loss.item():.4f}  "
@@ -316,3 +343,4 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
         #       f"value-loss={value_loss.item():.4f}")
 
         buffer.clear()           # ready for the next iteration
+
