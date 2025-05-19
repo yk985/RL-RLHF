@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.rc('xtick', labelsize=15) 
-matplotlib.rc('ytick', labelsize=15)
-font = {'size'   : 18}
+matplotlib.rc('xtick', labelsize=12) 
+matplotlib.rc('ytick', labelsize=12)
+font = {'size'   : 14}
 
 matplotlib.rc('font', **font)
 
