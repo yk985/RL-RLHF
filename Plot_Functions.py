@@ -59,7 +59,7 @@ def plot_suboptimality(reward_hist_pi1, reward_hist_pi2, max_reward=None): # in 
   plt.show()
 
 
-def plot_scores_RLHF(rewards_init, rewards_ref, rewards_rlhf, algo="DPO"):
+def plot_scores_RLHF(rewards_init, rewards_ref, rewards_rlhf, algo="DPO", save=False, n_pair=None, env_name=None):
   """
   Plot average episode reward versus update index
   for two policies: DPO and Reference policy.
@@ -80,11 +80,15 @@ def plot_scores_RLHF(rewards_init, rewards_ref, rewards_rlhf, algo="DPO"):
   plt.plot(runs, rewards_rlhf, label=algo+f" policy \n mean = {np.mean(rewards_rlhf):.1f}", linewidth=2)
   plt.xlabel("Episodes (complete runs)")
   plt.ylabel("Cumulative Reward over the run $R_{run}$")
-  plt.title(f"Policies Performance Over {len(rewards_init)} Evaluation Episodes")
+  plt.title(f"{env_name} | {n_pair=} |averaged over 3 seeds")
   plt.legend(loc="lower right")
   plt.grid(alpha=0.3)
   plt.tight_layout()
-  plt.show()
+  
+  if save:
+    plt.savefig(f"{env_name}_{algo}_performance_{n_pair}.png", dpi=300)
+  else:
+    plt.show()
 
 def plot_suboptimality_three_policies(reward_hist_dpo, reward_hist_init, reward_hist_ref, max_reward=None, algo="DPO"):
   """
