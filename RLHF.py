@@ -45,6 +45,40 @@ class RewardModel(nn.Module):
         x = torch.cat([state, action_onehot], dim=-1)  # (1, d + 2)
         return self.fc(x).squeeze(-1)
 
+class RewardModel_Acro(nn.Module):
+    def __init__(self, state_dim, action_dim, hidden_dim=64):
+        super().__init__()
+        self.fc = nn.Sequential(
+            nn.Linear(state_dim + action_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1)
+        )
+
+    # def forward(self, state, action):
+    #     if state.dim() == 1:
+    #         state = state.unsqueeze(0)  # (1, d)
+    #     if action.dim() == 0:
+    #         action = action.unsqueeze(0)  # (1,)
+    #     action_onehot = F.one_hot(action, num_classes=2).float()  # (1, 2)
+    #     x = torch.cat([state, action_onehot], dim=-1)  # (1, d + 2)
+    #     return self.fc(x).squeeze(-1)
+
+    def forward(self, state, action):
+        if state.dim() == 1:
+            state = state.unsqueeze(0)  # (1, d)
+        if action.dim() == 0:
+            action = action.unsqueeze(0)  # (1,)
+        elif action.dim() == 2 and action.size(1) == 1:
+            action = action.squeeze(1)  # (batch_size,)
+
+        action_onehot = F.one_hot(action, num_classes=3).float()  # (1, 2)
+        
+        if action_onehot.dim() == 3:
+            action_onehot = action_onehot.squeeze(1)  # remove spurious middle dim
+
+        x = torch.cat([state, action_onehot], dim=-1)  # (1, d + 2)
+        return self.fc(x).squeeze(-1)
+    
 
     # def forward(self, state, action):
     #     # One-hot encode action
