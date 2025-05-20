@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from pairs_generator import extract_states_actions, compute_logprob_trajectory, log_policy_of_traj
-from Pendulum_functions import compute_logprob_trajectory_sac
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
