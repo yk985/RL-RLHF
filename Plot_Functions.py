@@ -7,6 +7,7 @@ font = {'size'   : 14}
 
 matplotlib.rc('font', **font)
 
+
 def plot_Scores(reward_hist_pi1, reward_hist_pi2): # in cartpole, 200 is the max reward
   """
   Plot average episode reward versus update index
@@ -27,7 +28,8 @@ def plot_Scores(reward_hist_pi1, reward_hist_pi2): # in cartpole, 200 is the max
   plt.legend(loc="lower right")
   plt.grid(alpha=0.5)
   plt.show()
-    
+
+
 def plot_suboptimality(reward_hist_pi1, reward_hist_pi2, max_reward=None): # in cartpole, 200 is the max reward
   """
   Plot suboptimality = (max_reward - reward) versus update index
@@ -90,6 +92,7 @@ def plot_scores_RLHF(rewards_init, rewards_ref, rewards_rlhf, algo="DPO", save=F
   else:
     plt.show()
 
+
 def plot_suboptimality_three_policies(reward_hist_dpo, reward_hist_init, reward_hist_ref, max_reward=None, algo="DPO"):
   """
   Plot suboptimality = (max_reward - reward) for three policies:
@@ -128,6 +131,7 @@ def plot_suboptimality_three_policies(reward_hist_dpo, reward_hist_init, reward_
   plt.grid(alpha=0.3)
   plt.tight_layout()
   plt.show()
+
 
 def plot_trajectory_performance(traj1, traj2):
   """

@@ -1,15 +1,8 @@
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 from torch.distributions import Categorical
 from torch.utils.data import TensorDataset, DataLoader
-from torch.optim import Adam
-
-import torch.optim as optim
-from torch.utils.data import TensorDataset, DataLoader
-import torch.nn.functional as F
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -57,6 +50,7 @@ class RolloutBuffer:
         for lst in (self.states, self.actions, self.logprobs,
                     self.rewards, self.values, self.dones):
             lst.clear()
+
 
 def ppo_update(policy, optimizer, buffer,gamma, lam, c1 = 0.5, c2= 0.01, clip_eps=0.2, epochs=4, batch_size=64):
     # convert lists to tensors

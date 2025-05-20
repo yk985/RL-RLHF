@@ -1,16 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pairs_generator import compute_reward_from_traj, extract_states_actions
-from Generate_traj_func import generate_trajectory
-
 from torch.distributions import Categorical
 from torch.utils.data import TensorDataset, DataLoader
-from PPO import RolloutBuffer                         # already in your repo
+
+from pairs_generator import compute_reward_from_traj, extract_states_actions
+from Generate_traj_func import generate_trajectory
+from PPO import RolloutBuffer               
 from tqdm.auto import tqdm
 
 
-#A voir si necessaire
 class RewardModel(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_dim=64):
         super().__init__()
@@ -19,15 +18,6 @@ class RewardModel(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, 1)
         )
-
-    # def forward(self, state, action):
-    #     if state.dim() == 1:
-    #         state = state.unsqueeze(0)  # (1, d)
-    #     if action.dim() == 0:
-    #         action = action.unsqueeze(0)  # (1,)
-    #     action_onehot = F.one_hot(action, num_classes=2).float()  # (1, 2)
-    #     x = torch.cat([state, action_onehot], dim=-1)  # (1, d + 2)
-    #     return self.fc(x).squeeze(-1)
 
     def forward(self, state, action):
         if state.dim() == 1:
@@ -45,6 +35,7 @@ class RewardModel(nn.Module):
         x = torch.cat([state, action_onehot], dim=-1)  # (1, d + 2)
         return self.fc(x).squeeze(-1)
 
+
 class RewardModel_Acro(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_dim=64):
         super().__init__()
@@ -53,16 +44,7 @@ class RewardModel_Acro(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, 1)
         )
-
-    # def forward(self, state, action):
-    #     if state.dim() == 1:
-    #         state = state.unsqueeze(0)  # (1, d)
-    #     if action.dim() == 0:
-    #         action = action.unsqueeze(0)  # (1,)
-    #     action_onehot = F.one_hot(action, num_classes=2).float()  # (1, 2)
-    #     x = torch.cat([state, action_onehot], dim=-1)  # (1, d + 2)
-    #     return self.fc(x).squeeze(-1)
-
+    
     def forward(self, state, action):
         if state.dim() == 1:
             state = state.unsqueeze(0)  # (1, d)
@@ -80,11 +62,6 @@ class RewardModel_Acro(nn.Module):
         return self.fc(x).squeeze(-1)
     
 
-    # def forward(self, state, action):
-    #     # One-hot encode action
-    #     action_onehot = F.one_hot(action, num_classes=2).float()
-    #     x = torch.cat([state, action_onehot], dim=-1)
-    #     return self.fc(x).squeeze(-1)
 
 def train_reward_model(reward_model, dataset, optimizer, epochs=1000):
     for epoch in tqdm(range(epochs), desc="Training Reward Model", leave=False, colour="#14C2C7"):
@@ -105,6 +82,7 @@ def train_reward_model(reward_model, dataset, optimizer, epochs=1000):
 
 def compute_kl_divergence(p_probs, q_probs):
     return torch.sum(p_probs * (torch.log(p_probs + 1e-8) - torch.log(q_probs + 1e-8)), dim=-1)
+
 
 def train_policy_from_rollouts_n_updates(policy, ref_policy, reward_model, env, optimizer,
                                          N=10, K=10, max_steps=500, beta=0.1, device="cpu"):
@@ -168,6 +146,7 @@ def compute_gae(trajectory, gamma=0.99, lam=0.95):
         returns.insert(0, gae + values[t])
     return returns, advantages
 
+
 def compute_policy_kl(policy_new, policy_old, states, actions):
     """
     Computes average KL divergence between two policies over a trajectory.
@@ -191,45 +170,6 @@ def compute_policy_kl(policy_new, policy_old, states, actions):
     kl_div = torch.distributions.kl.kl_divergence(dist_new, dist_old)  # shape: [T]
 
     return kl_div.mean()
-
-
-def train_policy_v2(policy, ref_policy, reward_model, env, optimizer, total_updates=100,
-                    beta=0.1, ppo_epochs=4, clip_eps=0.2, gamma=0.99, lam=0.95,
-                    num_trajectories=10, device="cpu"):
-    
-    for update_iter in range(total_updates):
-        # === Regenerate trajectories using the CURRENT policy ===
-        
-        all_DKL=[]
-        all_rewards=[]
-
-        for _ in range(num_trajectories):
-            traj = generate_trajectory(policy, env, device=device)
-            states, actions = extract_states_actions(traj, device)
-            all_DKL.append(compute_kl_divergence(policy,ref_policy,states,actions))
-            # Use reward model to assign rewards
-            with torch.no_grad():
-                rewards = reward_model(states, actions.unsqueeze(-1)).squeeze(-1)
-            all_rewards.append(rewards)
-
-            
-        # === Prepare tensors for PPO optimization ===
-        
-        DKL = torch.tensor(all_DKL, dtype=torch.float32).to(device)
-        all_rewards = torch.tensor(all_rewards, dtype=torch.float32).to(device)
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-
-        # === Optimize policy using PPO loss (multiple epochs on same batch) ===
-        for _ in range(ppo_epochs):
-            
-
-            total_loss = -all_rewards.mean()+beta*DKL.mean()
-
-            optimizer.zero_grad()
-            total_loss.backward()
-            optimizer.step()
-
-        print(f"[Update {update_iter}] total Loss: {total_loss.item():.4f}")
 
 
 def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
