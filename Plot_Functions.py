@@ -7,6 +7,7 @@ font = {'size'   : 14}
 
 matplotlib.rc('font', **font)
 
+
 def plot_Scores(reward_hist_pi1, reward_hist_pi2): # in cartpole, 200 is the max reward
   """
   Plot average episode reward versus update index
@@ -20,14 +21,15 @@ def plot_Scores(reward_hist_pi1, reward_hist_pi2): # in cartpole, 200 is the max
   runs = np.arange(1, len(reward_hist_pi2) + 1)
 
   plt.figure(figsize=(7, 5))
-  plt.plot(runs, reward_hist_pi1, label=f"$\pi_1$ Scores \n mean = {np.mean(reward_hist_pi1):.1f}")
-  plt.plot(runs, reward_hist_pi2, label=f"$\pi_2$ Scores \n mean = {np.mean(reward_hist_pi2):.1f}")
+  plt.plot(runs, reward_hist_pi1, label=fr"$\pi_1$ Scores \n mean = {np.mean(reward_hist_pi1):.1f}")
+  plt.plot(runs, reward_hist_pi2, label=fr"$\pi_2$ Scores \n mean = {np.mean(reward_hist_pi2):.1f}")
   plt.xlabel("Episodes (complete Runs)")
   plt.ylabel("Score at each episode $=$ $R_{run}$ ")
   plt.legend(loc="lower right")
   plt.grid(alpha=0.5)
   plt.show()
-    
+
+
 def plot_suboptimality(reward_hist_pi1, reward_hist_pi2, max_reward=None): # in cartpole, 200 is the max reward
   """
   Plot suboptimality = (max_reward - reward) versus update index
@@ -75,12 +77,13 @@ def plot_scores_RLHF(rewards_init, rewards_ref, rewards_rlhf, algo="DPO", save=F
   runs = np.arange(1, len(rewards_init) + 1)
 
   plt.figure(figsize=(8, 5))
-  plt.plot(runs, rewards_init, label=f"Initial policy \n mean = {np.mean(rewards_init):.1f}", linewidth=2)
-  plt.plot(runs, rewards_ref, label=f"Reference policy \n mean = {np.mean(rewards_ref):.1f}", linestyle='--')
-  plt.plot(runs, rewards_rlhf, label=algo+f" policy \n mean = {np.mean(rewards_rlhf):.1f}", linewidth=2)
+  plt.plot(runs, rewards_init, label=f"Initial policy \n mean = {np.mean(rewards_init):.1f}", linewidth=2,    color= '#1a4aff')
+  plt.plot(runs, rewards_ref, label=f"Reference policy \n mean = {np.mean(rewards_ref):.1f}", lw=2, linestyle='--', color= 'black')
+  plt.plot(runs, rewards_rlhf, label=algo+f" policy \n mean = {np.mean(rewards_rlhf):.1f}",   linewidth=2,    color= '#DB281C')
   plt.xlabel("Episodes (complete runs)")
-  plt.ylabel("Cumulative Reward over the run $R_{run}$")
-  plt.title(f"{env_name} | {n_pair=} |averaged over 3 seeds")
+  plt.ylabel("Cumulative Reward over the run")
+  plt.xlim(0, len(runs)+1)
+  plt.title(f"{env_name} | $n_{{pairs}}={n_pair}$ |averaged over 3 seeds")
   plt.legend(loc="lower right")
   plt.grid(alpha=0.3)
   plt.tight_layout()
@@ -89,6 +92,7 @@ def plot_scores_RLHF(rewards_init, rewards_ref, rewards_rlhf, algo="DPO", save=F
     plt.savefig(f"{env_name}_{algo}_performance_{n_pair}.png", dpi=300)
   else:
     plt.show()
+
 
 def plot_suboptimality_three_policies(reward_hist_dpo, reward_hist_init, reward_hist_ref, max_reward=None, algo="DPO"):
   """
@@ -128,6 +132,7 @@ def plot_suboptimality_three_policies(reward_hist_dpo, reward_hist_init, reward_
   plt.grid(alpha=0.3)
   plt.tight_layout()
   plt.show()
+
 
 def plot_trajectory_performance(traj1, traj2):
   """

@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import gym
 from collections import deque
-from tqdm.auto import tqdm
+import random
 
 # for the display of the environment
 import time
@@ -28,14 +28,6 @@ def baseline_CartPole_v0_Fla(state, w_angle=0.8, w_ang_vel=0.8):
     value = w_angle * (0.2 - angle**2) - w_ang_vel * ang_velocity**2
     return value
 
-def baseline_CartPole_V0(state, w_angle=0.8, w_ang_vel=0.8):
-    """
-    A simple hand-coded baseline: uses the pole angle theta to estimate value.
-    """
-    theta = state[2]   # cartpole’s pole angle
-    return 25 * np.cos(theta) + 0.5 * state[3]  # add velocity term
-
-import numpy as np
 
 def baseline_Acrobot_v0(state, w_height=1.0, w_vel=0.05):
     """
@@ -65,56 +57,6 @@ def baseline_Acrobot_v0(state, w_height=1.0, w_vel=0.05):
     # value: higher when tip is up & velocities are small
     value = w_height * h_norm - w_vel * (d1**2 + d2**2)
     return float(value)
-
-
-
-
-def baseline_MountainCar(state):
-    """
-    A simple hand-coded baseline: uses the car's position to estimate value.
-    """
-    position = state[0]  # car's position
-    velocity = state[1]  # car's velocity
-    if np.abs(position) >= 0.2:
-        return -10*( position * velocity) 
-    else:
-        return 100 * np.abs(position) + 10000 * velocity**2
-
-
-def baseline_MountainCar_continuous(state):
-    """
-    A shaped, potential-based baseline for MountainCarContinuous-v0:
-
-      V_hat(s) = 100 * (pos_norm)  – 10 * vel^2
-
-    where
-      pos_norm = (position + 1.2) / 1.8
-        maps position ∈ [-1.2, +0.6]  → [0,1],
-      100 is the terminal reward at the flag,
-      10*vel^2 penalizes fast (costly) movements.
-
-    Args:
-      state: 1‐D array [position, velocity]
-      gamma: discount factor (unused here, but could scale baseline by 1/(1−γ))
-    Returns:
-      float baseline estimate for V(s)
-    """
-    position, velocity = state
-    # normalize position to [0..1], where 1 means at the goal (x=0.6)
-    pos_norm = (position + 1.2) / 1.8
-
-    # estimate of terminal‐bonus value
-    # if you get to the goal, you earn +100 (the environment’s sparse reward)
-    # so approximate V(s) ≈ 100 * pos_norm
-    terminal_potential = 100.0 * pos_norm
-
-    # penalize high speeds (control cost)
-    control_penalty = 10.0 * (velocity ** 2)
-
-    return terminal_potential - control_penalty
-
-
-
 
 def select_action(policy, obs):
     obs_tensor = torch.tensor(obs, dtype=torch.float32)
@@ -254,7 +196,8 @@ def OPPO_update(policy,
             break
         
     return scores
-import random
+
+
 def set_seed(seed, env=None):
     random.seed(seed)
     np.random.seed(seed)
@@ -264,7 +207,7 @@ def set_seed(seed, env=None):
         env.action_space.seed(seed)
         env.observation_space.seed(seed)
 
-    
+
 def OPPO_update_Acrobot(policy,
                 optimizer,
                 env,
