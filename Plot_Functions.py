@@ -195,7 +195,7 @@ def plot_avg_loss_curves(loss_hist_list, pair_list, algo="DPO"):
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.title(f"{algo} Loss curve ±1 $\\theta$ | averaged over 3 seeds")
-    plt.legend(title="#prefs")
+    plt.legend()
     plt.grid(alpha=0.3)
     plt.tight_layout()
     plt.show()
