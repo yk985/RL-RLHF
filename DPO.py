@@ -25,14 +25,20 @@ def dpo_loss(policy, ref_policy, dataset, beta):
 
 
 def DPO_training(policy, ref_policy, preference_dataset, beta,optimizer,nb_epochs=500):
+    loss_hist = []
+
     for epoch in range(nb_epochs):
         optimizer.zero_grad()
         loss = dpo_loss(policy, ref_policy, preference_dataset, beta)
         loss.backward()
         optimizer.step()
+
+        loss_hist.append(loss.item())
         
         if epoch % 10 == 0:
-            print(f"Epoch {epoch}: DPO Loss = {loss.item():.4f}")
+            print(f"Epoch {epoch}: DPO Loss = {loss.item():e}")
+
+    return loss_hist
 
 
 

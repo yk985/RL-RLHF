@@ -77,8 +77,8 @@ def plot_scores_RLHF(rewards_init, rewards_ref, rewards_rlhf, algo="DPO", save=F
   runs = np.arange(1, len(rewards_init) + 1)
 
   plt.figure(figsize=(8, 5))
-  plt.plot(runs, rewards_init, label=f"Initial policy \n mean = {np.mean(rewards_init):.1f}", linewidth=2,    color= '#1a4aff')
-  plt.plot(runs, rewards_ref, label=f"Reference policy \n mean = {np.mean(rewards_ref):.1f}", lw=2, linestyle='--', color= 'black')
+  plt.plot(runs, rewards_init, label=f"Initial policy = $\pi_1$  \n mean = {np.mean(rewards_init):.1f}", linewidth=2,    color= '#1a4aff')
+  plt.plot(runs, rewards_ref, label=f"Reference policy = $\pi_2$ \n mean = {np.mean(rewards_ref):.1f}", lw=2, linestyle='--', color= 'black')
   plt.plot(runs, rewards_rlhf, label=algo+f" policy \n mean = {np.mean(rewards_rlhf):.1f}",   linewidth=2,    color= '#DB281C')
   plt.xlabel("Episodes (complete runs)")
   plt.ylabel("Cumulative Reward over the run")
@@ -121,9 +121,9 @@ def plot_suboptimality_three_policies(reward_hist_dpo, reward_hist_init, reward_
   sub_ref = max_reward - np.array(reward_hist_ref)
 
   plt.figure(figsize=(8, 5))
-  plt.plot(runs, sub_init, label=f"Init policy \n mean = {np.mean(sub_init):.1f}", linestyle='--')
-  plt.plot(runs, sub_ref, label=f"Reference policy\nmean = {np.mean(sub_ref):.1f}", linestyle=':')
-  plt.plot(runs, sub_dpo, label=algo+f" policy \n mean = {np.mean(sub_dpo):.1f}", linewidth=2)
+  plt.plot(runs, sub_init, label= rf"Init policy = \pi_2 \n mean = {np.mean(sub_init):.1f}", linestyle='--')
+  plt.plot(runs, sub_ref, label= rf"Reference policy = \pi_1; mean = {np.mean(sub_ref):.1f}", linestyle=':')
+  plt.plot(runs, sub_dpo, label= algo+f" policy \n mean = {np.mean(sub_dpo):.1f}", linewidth=2)
   
   plt.xlabel("Episodes (complete runs)")
   plt.ylabel("Suboptimality $= R_{max} - R_{run}$")
@@ -161,3 +161,19 @@ def plot_trajectory_performance(traj1, traj2):
   plt.grid(alpha=0.6)
   plt.show()
 
+
+def plot_loss_curve(loss_history1, loss_history2, loss_history3, n_pair, algo="DPO"):
+  epochs1 = list(range(1, len(loss_history1)+1))
+  epochs2 = list(range(1, len(loss_history2)+1))
+  epochs3 = list(range(1, len(loss_history3)+1))
+  plt.figure(figsize=(8,5))
+  plt.plot(epochs1, loss_history1, label="seed 35", color='blue')
+  plt.plot(epochs2, loss_history2, label="seed 42", color='orange')
+  plt.plot(epochs3, loss_history3, label="seed 100", color='green')
+  plt.xlabel("Epoch")
+  plt.ylabel("Loss")
+  plt.title(algo+f" Loss over Epochs with $n_{{pairs}}$ = {n_pair} |  for 3 different seeds")
+  plt.grid(alpha=0.3)
+  plt.legend(loc="upper right")
+  plt.tight_layout()
+  plt.show()
