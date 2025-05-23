@@ -197,6 +197,7 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
     ref_policy.to(device)
     reward_model.to(device)
     ref_policy.eval()            # must stay frozen
+    loss_hist = []
 
     for update_idx in range(1, N + 1):
         buffer = RolloutBuffer()                     # stores one big batch
@@ -294,6 +295,7 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(policy.parameters(), 0.5)
                 optimizer.step()
+        loss_hist.append(loss.item())
 
         if update_idx % 10 == 0:
             # KL divergence between the new and old policy
@@ -317,4 +319,5 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
         #       f"value-loss={value_loss.item():.4f}")
 
         buffer.clear()           # ready for the next iteration
+    return loss_hist
 
