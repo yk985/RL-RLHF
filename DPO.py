@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from pairs_generator import extract_states_actions, compute_logprob_trajectory, log_policy_of_traj
+from PPO import evaluate_policy
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -24,9 +25,9 @@ def dpo_loss(policy, ref_policy, dataset, beta):
     return torch.stack(losses).mean()
 
 
-def DPO_training(policy, ref_policy, preference_dataset, beta,optimizer,nb_epochs=500):
+def DPO_training(policy, ref_policy, preference_dataset, beta,env,optimizer,nb_epochs=500):
     loss_hist = []
-
+    traj_reward_hist=[]
     for epoch in range(nb_epochs):
         optimizer.zero_grad()
         loss = dpo_loss(policy, ref_policy, preference_dataset, beta)
@@ -37,8 +38,10 @@ def DPO_training(policy, ref_policy, preference_dataset, beta,optimizer,nb_epoch
         
         if epoch % 10 == 0:
             print(f"Epoch {epoch}: DPO Loss = {loss.item():e}")
+            mean_reward,_=evaluate_policy(policy,env,n_episodes=5)
+            traj_reward_hist.append(mean_reward)
 
-    return loss_hist
+    return loss_hist, traj_reward_hist
 
 
 

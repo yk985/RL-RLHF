@@ -6,9 +6,8 @@ from torch.utils.data import TensorDataset, DataLoader
 
 from pairs_generator import compute_reward_from_traj, extract_states_actions
 from Generate_traj_func import generate_trajectory
-from PPO import RolloutBuffer               
+from PPO import RolloutBuffer  ,evaluate_policy             
 from tqdm.auto import tqdm
-
 
 class RewardModel(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_dim=64):
@@ -102,6 +101,7 @@ def train_policy_from_rollouts_n_updates(policy, ref_policy, reward_model, env, 
         beta: KL penalty coefficient
         device: torch device
     """
+    traj_reward_hist=[]
     for update_step in range(N):
         total_loss = 0.0
 
@@ -130,6 +130,9 @@ def train_policy_from_rollouts_n_updates(policy, ref_policy, reward_model, env, 
         optimizer.step()
         if update_step % 10 == 9 or update_step == N - 1 or update_step == 0:
             print(f"[Update {update_step+1}/{N}]   \t Avg Loss: {avg_loss.item():.2f}")
+            mean_reward,_=evaluate_policy(policy,env,n_episodes=5)
+            traj_reward_hist.append(mean_reward)
+    return traj_reward_hist
 
 def compute_gae(trajectory, gamma=0.99, lam=0.95):
     rewards = [step["reward"] for step in trajectory]
@@ -193,6 +196,7 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
     After collecting K trajectories (θ is frozen while collecting),
     we optimise the clipped PPO surrogate for `ppo_epochs` epochs.
     """
+    traj_reward_hist=[]
     policy.to(device)
     ref_policy.to(device)
     reward_model.to(device)
@@ -312,6 +316,8 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
                   f"loss={loss.item():e} "
                   f"value-loss: {value_loss.item():e}  "
                   f"entropy: {entropy_bns.item():e}")
+            mean_reward,_=evaluate_policy(policy,env,n_episodes=5)
+            traj_reward_hist.append(mean_reward)
         # print(f"[{update_idx}/{N}] "
         #       f"batch steps={len(buffer.rewards):4d}  "
         #       f"loss={loss.item():.4f}  "
@@ -319,5 +325,5 @@ def train_policy_from_rollouts_n_updates_v2( # lr should be1e-3
         #       f"value-loss={value_loss.item():.4f}")
 
         buffer.clear()           # ready for the next iteration
-    return loss_hist
+    return loss_hist, traj_reward_hist
 

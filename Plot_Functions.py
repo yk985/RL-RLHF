@@ -199,3 +199,25 @@ def plot_avg_loss_curves(loss_hist_list, pair_list, algo="DPO"):
     plt.grid(alpha=0.3)
     plt.tight_layout()
     plt.show()
+
+
+def plot_avg_reward_curves(loss_hist_list, pair_list, algo="DPO"):
+    plt.figure(figsize=(8,5))
+    for n_pairs, seed_hists in zip(pair_list, loss_hist_list):
+        arr = np.vstack(seed_hists)                  # shape (n_seeds, epochs)
+        mean = arr.mean(axis=0)
+        std  = arr.std(axis=0)
+        epochs = np.arange(1, arr.shape[1]+1)
+
+        plt.plot(epochs, mean, label=f"{n_pairs} pairs")
+        plt.fill_between(epochs,
+                         mean - std,
+                         mean + std,
+                         alpha=0.2)
+    plt.xlabel("Epoch")
+    plt.ylabel("Reward")
+    #plt.title(f"{algo} Loss curve ±1 $\\theta$ | averaged over 3 seeds")
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.show()
