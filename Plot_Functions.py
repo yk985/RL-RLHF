@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.rc('xtick', labelsize=12) 
-matplotlib.rc('ytick', labelsize=12)
-font = {'size'   : 14}
+matplotlib.rc('xtick', labelsize=14) 
+matplotlib.rc('ytick', labelsize=14)
+font = {'size'   : 16}
 
 matplotlib.rc('font', **font)
 
@@ -77,8 +77,8 @@ def plot_scores_RLHF(rewards_init, rewards_ref, rewards_rlhf, algo="DPO", save=F
   runs = np.arange(1, len(rewards_init) + 1)
 
   plt.figure(figsize=(8, 5))
-  plt.plot(runs, rewards_init, label=f"Initial policy = $\pi_1$  \n mean = {np.mean(rewards_init):.1f}", linewidth=2,    color= '#1a4aff')
-  plt.plot(runs, rewards_ref, label=f"Reference policy = $\pi_2$ \n mean = {np.mean(rewards_ref):.1f}", lw=2, linestyle='--', color= 'black')
+  plt.plot(runs, rewards_init, label=f"Initial policy = $\pi_2$  \n mean = {np.mean(rewards_init):.1f}", linewidth=2,    color= '#1a4aff')
+  plt.plot(runs, rewards_ref, label=f"Reference policy = $\pi_1$ \n mean = {np.mean(rewards_ref):.1f}", lw=2, linestyle='--', color= 'black')
   plt.plot(runs, rewards_rlhf, label=algo+f" policy \n mean = {np.mean(rewards_rlhf):.1f}",   linewidth=2,    color= '#DB281C')
   plt.xlabel("Episodes (complete runs)")
   plt.ylabel("Cumulative Reward over the run")
@@ -179,8 +179,8 @@ def plot_loss_curve(loss_history1, loss_history2, loss_history3, n_pair, algo="D
   plt.show()
 
 
-def plot_avg_loss_curves(loss_hist_list, pair_list, algo="DPO"):
-    plt.figure(figsize=(8,5))
+def plot_avg_loss_curves(loss_hist_list, pair_list, algo="DPO",legend=True, save = True, env_name=None):
+    plt.figure(figsize=(7,5))
     for n_pairs, seed_hists in zip(pair_list, loss_hist_list):
         arr = np.vstack(seed_hists)                  # shape (n_seeds, epochs)
         mean = arr.mean(axis=0)
@@ -192,32 +192,44 @@ def plot_avg_loss_curves(loss_hist_list, pair_list, algo="DPO"):
                          mean - std,
                          mean + std,
                          alpha=0.2)
-    plt.xlabel("Epoch")
+    plt.xlabel(f"Update step $t$")
     plt.ylabel("Loss")
-    plt.title(f"{algo} Loss curve ±1 $\\theta$ | averaged over 3 seeds")
-    plt.legend()
+    # plt.title(f"{algo} Loss curve ±1 $\\theta$ | averaged over 3 seeds")
+    plt.title(f"{algo} | {env_name} ")
+    if legend:
+        plt.legend()
+    else:
+        plt.legend().set_visible(False)
     plt.grid(alpha=0.3)
     plt.tight_layout()
+    if save:
+      plt.savefig(f"{env_name}_{algo}_loss_curve.png", dpi=300)
     plt.show()
 
 
-def plot_avg_reward_curves(loss_hist_list, pair_list, algo="DPO"):
-    plt.figure(figsize=(8,5))
+def plot_avg_reward_curves(loss_hist_list, pair_list, algo="DPO", legend=True, save = True, env_name=None):
+    plt.figure(figsize=(7,5))
     for n_pairs, seed_hists in zip(pair_list, loss_hist_list):
         arr = np.vstack(seed_hists)                  # shape (n_seeds, epochs)
         mean = arr.mean(axis=0)
         std  = arr.std(axis=0)
-        epochs = np.arange(1, arr.shape[1]+1)
+        epochs = 10*np.arange(1, arr.shape[1]+1)
 
         plt.plot(epochs, mean, label=f"{n_pairs} pairs")
         plt.fill_between(epochs,
                          mean - std,
                          mean + std,
                          alpha=0.2)
-    plt.xlabel("Epoch")
+    plt.xlabel(f"Update step $t$")
     plt.ylabel("Reward")
-    #plt.title(f"{algo} Loss curve ±1 $\\theta$ | averaged over 3 seeds")
-    plt.legend()
+    plt.title(f"{algo} | {env_name}")
+    # plt.title(f"{algo} Loss curve ±1 $\\theta$ | averaged over 3 seeds")
+    if legend:
+        plt.legend()
+    else:
+        plt.legend().set_visible(False)
     plt.grid(alpha=0.3)
     plt.tight_layout()
+    if save:
+      plt.savefig(f"{env_name}_{algo}_reward_curve.png", dpi=300)
     plt.show()
