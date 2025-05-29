@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from pairs_generator import extract_states_actions, compute_logprob_trajectory, log_policy_of_traj
+from pairs_generator import compute_logprob_trajectory
 from PPO import evaluate_policy
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 

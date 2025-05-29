@@ -52,59 +52,6 @@ class RolloutBuffer:
             lst.clear()
 
 
-def ppo_update(policy, optimizer, buffer,gamma, lam, c1 = 0.5, c2= 0.01, clip_eps=0.2, epochs=4, batch_size=64):
-    # convert lists to tensors
-    states = torch.stack(buffer.states).to(device)
-    actions = torch.tensor(buffer.actions).to(device)
-    old_lps = torch.stack(buffer.logprobs).to(device)
-
-    # compute returns & advantages
-    # you must pass the last value calculated after rollout
-    last_state = buffer.states[-1]
-    with torch.no_grad():
-        _, last_value = policy(last_state.unsqueeze(0))
-
-    if buffer.dones[-1]:
-        last_value = torch.zeros_like(last_value)
-
-    # last_state = buffer.states[-1]              # assuming you stored tensors
-    returns, advs = buffer.compute_returns_and_advantages(last_value,gamma, lam)
-    returns, advs = returns.to(device), advs.to(device)
-
-    dataset = TensorDataset(states, actions, old_lps, returns, advs)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-
-    for _ in range(epochs):
-        for S, A, LP_old, R, ADV in loader:
-            logits, V = policy(S)
-            dist = Categorical(logits=logits)
-            LP_new = dist.log_prob(A)
-            ratio = (LP_new - LP_old).exp()
-
-            # clipped policy loss; exactly slide 39 lecture 5
-            surr1 = ratio * ADV
-            surr2 = torch.clamp(ratio, 1 - clip_eps, 1 + clip_eps) * ADV
-            policy_loss = -torch.min(surr1, surr2).mean()
-
-            # value loss
-            value_loss = F.mse_loss(V, R)
-
-            # entropy bonus
-            entropy = dist.entropy().mean()
-
-            loss = policy_loss + c1 * value_loss - c2 * entropy # see PPO paper Schulman et al., 2017
-
-            optimizer.zero_grad()
-            loss.backward()
-
-            # Clip all gradients to norm ≤ 0.5
-            torch.nn.utils.clip_grad_norm_(policy.parameters(), 0.2)
-
-            optimizer.step()
-
-    buffer.clear()
-
-
 def evaluate_policy(policy, env, n_episodes=10, seed=2000): # different seed from training
     ''' 
     Evaluate the policy on the environment

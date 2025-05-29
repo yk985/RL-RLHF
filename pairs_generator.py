@@ -24,11 +24,6 @@ def sample_preference_pairs(pi1, pi2, env, K=100):
     return pairs
 
 
-def log_policy_of_traj(trajectories):
-    log_prob_traj=sum(traj["log_prob"] for traj in trajectories)
-    return log_prob_traj
-
-
 def extract_states_actions(trajectory, device="cpu"):
     """
     Extracts state and action tensors from a trajectory.
